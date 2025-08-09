@@ -1,54 +1,62 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import ConsentFormPreview from "@/pages/auth/ui/components/ConsentFormPreview";
+import { ConsentForm, ConsentFormBlock } from "@/api/consent";
+import {
+  CheckSquare,
+  Columns,
+  Edit,
+  FileText,
+  Heading,
+  Info,
+  List,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 
-// Types for the normalized structure
-interface ConsentForm {
-  id: number;
-  title: string;
-  subtitle: string;
-  studyTitle: string;
-  principalInvestigator: string;
-  institution: string;
-  irbProtocol: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Debounce hook
+const useDebounce = (value: any, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
-interface Block {
-  id: string;
-  formId: number;
-  type: string;
-  content: any;
-  style?: any;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy?: string;
-  updatedBy?: string;
-}
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 const CreateEditConsentView = () => {
   const [consentForm, setConsentForm] = useState<ConsentForm | null>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [blocks, setBlocks] = useState<ConsentFormBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
+  const [pendingUpdates, setPendingUpdates] = useState<Map<string, any>>(
+    new Map()
+  );
+
+  // Debounce pending updates
+  const debouncedUpdates = useDebounce(pendingUpdates, 500) as Map<string, any>;
 
   // Convert database format to frontend format
-  const dbBlockToFrontend = (dbBlock: any): Block => ({
+  const dbBlockToFrontend = (dbBlock: any): ConsentFormBlock => ({
     id: dbBlock.id,
     formId: dbBlock.form_id,
     type: dbBlock.type,
     content: dbBlock.content,
-    style: dbBlock.style,
     sortOrder: dbBlock.sort_order,
     createdAt: dbBlock.created_at,
     updatedAt: dbBlock.updated_at,
-    createdBy: dbBlock.created_by,
-    updatedBy: dbBlock.updated_by,
   });
 
   const dbFormToFrontend = (dbForm: any): ConsentForm => ({
@@ -56,12 +64,45 @@ const CreateEditConsentView = () => {
     title: dbForm.title,
     subtitle: dbForm.subtitle,
     studyTitle: dbForm.study_title,
-    principalInvestigator: dbForm.principal_investigator,
+    researchLead: dbForm.research_lead,
     institution: dbForm.institution,
-    irbProtocol: dbForm.irb_protocol,
+    irbNumber: dbForm.irb_number,
     createdAt: dbForm.created_at,
     updatedAt: dbForm.updated_at,
+    blocks: (dbForm.blocks || []).map(dbBlockToFrontend),
   });
+
+  // Process debounced updates
+  useEffect(() => {
+    const processUpdates = async () => {
+      if (debouncedUpdates.size === 0) return;
+
+      const updates = Array.from(debouncedUpdates.entries());
+      setPendingUpdates(new Map()); // Clear pending updates
+
+      for (const [blockId, updateData] of updates) {
+        try {
+          const dbUpdates: any = {};
+          if (updateData.content !== undefined)
+            dbUpdates.content = updateData.content;
+          if (updateData.sortOrder !== undefined)
+            dbUpdates.sort_order = updateData.sortOrder;
+
+          const { error } = await supabase
+            .from("consent_form_blocks")
+            .update(dbUpdates)
+            .eq("id", blockId);
+
+          if (error) throw error;
+        } catch (err) {
+          console.error("Failed to update block:", err);
+          toast.error("Failed to save changes");
+        }
+      }
+    };
+
+    processUpdates();
+  }, [debouncedUpdates]);
 
   // Load consent form and blocks
   const loadConsentForm = async () => {
@@ -71,7 +112,8 @@ const CreateEditConsentView = () => {
       const { data: formData, error: formError } = await supabase
         .from("consent_forms")
         .select("*")
-        .eq("is_active", true)
+        .order("updated_at", { ascending: false })
+        .limit(1)
         .single();
 
       if (formError) {
@@ -88,7 +130,6 @@ const CreateEditConsentView = () => {
           .from("consent_form_blocks")
           .select("*")
           .eq("form_id", formData.id)
-          .eq("is_active", true)
           .order("sort_order", { ascending: true });
 
         if (blocksError) {
@@ -107,9 +148,12 @@ const CreateEditConsentView = () => {
     }
   };
 
-  // Update form metadata
+  // Update form metadata (immediate update for form fields)
   const updateFormField = async (field: string, value: any) => {
     if (!consentForm) return;
+
+    // Update local state immediately
+    setConsentForm((prev) => (prev ? { ...prev, [field]: value } : null));
 
     try {
       const { error } = await supabase
@@ -118,43 +162,39 @@ const CreateEditConsentView = () => {
         .eq("id", consentForm.id);
 
       if (error) throw error;
-
-      setConsentForm((prev) => (prev ? { ...prev, [field]: value } : null));
     } catch (err) {
       console.error(`Failed to update ${field}:`, err);
       toast.error(`Failed to update ${field}`);
+      setConsentForm((prev) =>
+        prev
+          ? { ...prev, [field]: consentForm[field as keyof ConsentForm] }
+          : null
+      );
     }
   };
 
-  // Update individual block
-  const updateBlock = async (blockId: string, updates: Partial<Block>) => {
-    try {
-      const dbUpdates: any = {};
-      if (updates.content !== undefined) dbUpdates.content = updates.content;
-      if (updates.style !== undefined) dbUpdates.style = updates.style;
-      if (updates.sortOrder !== undefined)
-        dbUpdates.sort_order = updates.sortOrder;
-
-      const { error } = await supabase
-        .from("consent_form_blocks")
-        .update(dbUpdates)
-        .eq("id", blockId);
-
-      if (error) throw error;
-
-      // Update local state
+  // Update individual block (with debouncing)
+  const updateBlock = useCallback(
+    (blockId: string, updates: Partial<ConsentFormBlock>) => {
+      // Update local state immediately for responsive UI
       setBlocks((prev) =>
         prev.map((block) =>
           block.id === blockId ? { ...block, ...updates } : block
         )
       );
-    } catch (err) {
-      console.error("Failed to update block:", err);
-      toast.error("Failed to update block");
-    }
-  };
 
-  // Add new block
+      // Add to pending updates for debounced database save
+      setPendingUpdates((prev) => {
+        const newMap = new Map(prev);
+        const existing = newMap.get(blockId) || {};
+        newMap.set(blockId, { ...existing, ...updates });
+        return newMap;
+      });
+    },
+    []
+  );
+
+  // Add new block (immediate update)
   const addBlock = async (type: string) => {
     if (!consentForm) return;
 
@@ -167,7 +207,6 @@ const CreateEditConsentView = () => {
           form_id: consentForm.id,
           type,
           content: getDefaultContent(type),
-          style: getDefaultStyle(type),
           sort_order: newSortOrder,
         })
         .select()
@@ -186,12 +225,12 @@ const CreateEditConsentView = () => {
     }
   };
 
-  // Delete block
+  // Delete block (immediate update)
   const deleteBlock = async (blockId: string) => {
     try {
       const { error } = await supabase
         .from("consent_form_blocks")
-        .update({ is_active: false })
+        .delete()
         .eq("id", blockId);
 
       if (error) throw error;
@@ -221,14 +260,14 @@ const CreateEditConsentView = () => {
         (payload) => {
           console.log("[Realtime] Form changed:", payload);
 
-          // Type guard and null checks
           if (
+            payload.eventType === "UPDATE" &&
             payload.new &&
             typeof payload.new === "object" &&
             "id" in payload.new &&
             payload.new.id === consentForm?.id
           ) {
-            setConsentForm(dbFormToFrontend(payload.new as any));
+            setConsentForm(dbFormToFrontend(payload.new));
           }
         }
       )
@@ -248,9 +287,8 @@ const CreateEditConsentView = () => {
           console.log("[Realtime] Block changed:", payload);
 
           if (payload.eventType === "INSERT" && payload.new) {
-            // Type guard for INSERT events
             if (typeof payload.new === "object" && "form_id" in payload.new) {
-              const newBlock = dbBlockToFrontend(payload.new as any);
+              const newBlock = dbBlockToFrontend(payload.new);
               if (newBlock.formId === consentForm?.id) {
                 setBlocks((prev) => {
                   // Check if block already exists to prevent duplicates
@@ -264,9 +302,8 @@ const CreateEditConsentView = () => {
           }
 
           if (payload.eventType === "UPDATE" && payload.new) {
-            // Type guard for UPDATE events
             if (typeof payload.new === "object" && "form_id" in payload.new) {
-              const updatedBlock = dbBlockToFrontend(payload.new as any);
+              const updatedBlock = dbBlockToFrontend(payload.new);
               if (updatedBlock.formId === consentForm?.id) {
                 setBlocks((prev) =>
                   prev.map((block) =>
@@ -278,7 +315,6 @@ const CreateEditConsentView = () => {
           }
 
           if (payload.eventType === "DELETE" && payload.old) {
-            // Type guard for DELETE events
             if (typeof payload.old === "object" && "id" in payload.old) {
               setBlocks((prev) =>
                 prev.filter((block) => block.id !== (payload.old as any).id)
@@ -308,11 +344,6 @@ const CreateEditConsentView = () => {
         return { text: "Information box content" };
       case "info_box_list":
         return { items: ["Info item 1", "Info item 2"] };
-      case "two_column_box":
-        return {
-          left: { title: "Left Title", items: ["Left item 1"] },
-          right: { title: "Right Title", items: ["Right item 1"] },
-        };
       case "two_column_info":
         return {
           left: { title: "Left Title", content: "Left content" },
@@ -323,130 +354,13 @@ const CreateEditConsentView = () => {
     }
   };
 
-  const getDefaultStyle = (type: string) => {
-    switch (type) {
-      case "info_box":
-        return { background: "yellow", fontWeight: "semibold" };
-      case "two_column_box":
-        return { leftColor: "red", rightColor: "green" };
-      default:
-        return null;
-    }
-  };
+  const getPreviewData = (): ConsentForm | null => {
+    if (!consentForm) return null;
 
-  // Block rendering components
-  const BlockRenderer = ({ block }: { block: Block }) => {
-    const { type, content, style } = block;
-
-    const getBackgroundClass = (background: string) => {
-      const backgroundMap: { [key: string]: string } = {
-        gray: "bg-gray-50 dark:bg-gray-900",
-        blue: "bg-blue-50 dark:bg-blue-900/20",
-        red: "bg-red-50 dark:bg-red-900/20",
-        green: "bg-green-50 dark:bg-green-900/20",
-        yellow: "bg-yellow-50 dark:bg-yellow-900/20",
-      };
-      return backgroundMap[background] || "";
+    return {
+      ...consentForm,
+      blocks: blocks,
     };
-
-    switch (type) {
-      case "section_header":
-        return (
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
-            {content.text}
-          </h3>
-        );
-      case "paragraph":
-        return (
-          <p
-            className={style?.fontWeight === "semibold" ? "font-semibold" : ""}
-          >
-            {content.text}
-          </p>
-        );
-      case "list":
-        const listBg = style?.background
-          ? getBackgroundClass(style.background)
-          : "";
-        return (
-          <div className={`p-4 rounded-lg ${listBg}`}>
-            <ul className="list-disc pl-6 space-y-1">
-              {content.items?.map((item: string, index: number) => (
-                <li key={index}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        );
-      case "info_box":
-        const infoBg = style?.background
-          ? getBackgroundClass(style.background)
-          : "";
-        const infoWeight =
-          style?.fontWeight === "semibold" ? "font-semibold" : "font-medium";
-        return (
-          <div className={`p-4 rounded-lg mb-3 ${infoBg}`}>
-            <p className={`${infoWeight}`}>{content.text}</p>
-          </div>
-        );
-      case "info_box_list":
-        const boxListBg = style?.background
-          ? getBackgroundClass(style.background)
-          : "";
-        return (
-          <div className={`p-4 rounded-lg ${boxListBg}`}>
-            <ul className="space-y-2">
-              {content.items?.map((item: string, index: number) => (
-                <li key={index}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        );
-      case "two_column_box":
-        const leftBg = style?.leftColor
-          ? getBackgroundClass(style.leftColor)
-          : "";
-        const rightBg = style?.rightColor
-          ? getBackgroundClass(style.rightColor)
-          : "";
-        return (
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className={`p-4 rounded-lg ${leftBg}`}>
-              <h4 className="font-medium mb-2">{content.left?.title}</h4>
-              <ul className="text-sm space-y-1">
-                {content.left?.items?.map((item: string, index: number) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className={`p-4 rounded-lg ${rightBg}`}>
-              <h4 className="font-medium mb-2">{content.right?.title}</h4>
-              <ul className="text-sm space-y-1">
-                {content.right?.items?.map((item: string, index: number) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        );
-      case "two_column_info":
-        const twoBg = style?.background
-          ? getBackgroundClass(style.background)
-          : "";
-        return (
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div className={`p-4 rounded-lg ${twoBg}`}>
-              <h4 className="font-medium mb-2">{content.left?.title}</h4>
-              <div>{content.left?.content}</div>
-            </div>
-            <div className={`p-4 rounded-lg ${twoBg}`}>
-              <h4 className="font-medium mb-2">{content.right?.title}</h4>
-              <div>{content.right?.content}</div>
-            </div>
-          </div>
-        );
-      default:
-        return <div>Unknown block type: {type}</div>;
-    }
   };
 
   if (loading) {
@@ -460,8 +374,10 @@ const CreateEditConsentView = () => {
     );
   }
 
+  const previewData = getPreviewData();
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pt-16">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Editor */}
@@ -514,12 +430,9 @@ const CreateEditConsentView = () => {
                     </label>
                     <Input
                       type="text"
-                      value={consentForm?.principalInvestigator || ""}
+                      value={consentForm?.researchLead || ""}
                       onChange={(e) =>
-                        updateFormField(
-                          "principal_investigator",
-                          e.target.value
-                        )
+                        updateFormField("research_lead", e.target.value)
                       }
                     />
                   </div>
@@ -541,9 +454,9 @@ const CreateEditConsentView = () => {
                     </label>
                     <Input
                       type="text"
-                      value={consentForm?.irbProtocol || ""}
+                      value={consentForm?.irbNumber || ""}
                       onChange={(e) =>
-                        updateFormField("irb_protocol", e.target.value)
+                        updateFormField("irb_number", e.target.value)
                       }
                     />
                   </div>
@@ -557,27 +470,41 @@ const CreateEditConsentView = () => {
                 <div key={block.id} className="border p-4 rounded-lg">
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded">
+                      <span className="text-sm">No. {block.sortOrder}</span>
+                      <span className="mb-1">|</span>
+                      <span className="text-xs">
                         {block.type.replace(/_/g, " ").toUpperCase()}
                       </span>
-                      <span className="text-sm">Item: {block.sortOrder}</span>
                     </div>
                     <div className="flex gap-2">
                       <Button
+                        size="sm"
+                        variant={
+                          editingBlock === block.id ? "outline" : "default"
+                        }
                         onClick={() =>
                           setEditingBlock(
                             editingBlock === block.id ? null : block.id
                           )
                         }
-                        className="px-4 py-1 text-smrounded"
                       >
-                        Edit
+                        {editingBlock === block.id ? (
+                          <span className="flex items-center gap-1.5">
+                            <X /> Close
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5">
+                            <Edit /> Edit
+                          </span>
+                        )}
                       </Button>
                       <Button
-                        variant="destructive"
+                        size="sm"
+                        variant="outline"
                         onClick={() => deleteBlock(block.id)}
+                        className="bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-700/70 border-red-200 hover:border-red-300"
                       >
-                        Delete
+                        <Trash2 /> Delete
                       </Button>
                     </div>
                   </div>
@@ -607,119 +534,84 @@ const CreateEditConsentView = () => {
                         block.type === "info_box_list") && (
                         <div>
                           <label className="block text-sm font-medium mb-2">
-                            List Items (one per line)
+                            List Items
                           </label>
-                          <Textarea
-                            value={
-                              Array.isArray(block.content.items)
-                                ? block.content.items.join("\n")
-                                : ""
-                            }
-                            onChange={(e) =>
-                              updateBlock(block.id, {
-                                content: {
-                                  ...block.content,
-                                  items: e.target.value
-                                    .split("\n")
-                                    .filter((item) => item.trim()),
-                                },
-                              })
-                            }
-                            rows={4}
-                            placeholder="Item 1&#10;Item 2&#10;Item 3"
-                          />
-                        </div>
-                      )}
+                          <div className="space-y-2">
+                            {Array.isArray(block.content.items) &&
+                            block.content.items.length > 0 ? (
+                              block.content.items.map(
+                                (item: string, index: number) => (
+                                  <div
+                                    key={index}
+                                    className="flex gap-2 items-center"
+                                  >
+                                    <Input
+                                      value={item}
+                                      onChange={(e) => {
+                                        const newItems = [
+                                          ...block.content.items,
+                                        ];
+                                        newItems[index] = e.target.value;
+                                        updateBlock(block.id, {
+                                          content: {
+                                            ...block.content,
+                                            items: newItems,
+                                          },
+                                        });
+                                      }}
+                                      placeholder={`Item ${index + 1}`}
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const newItems =
+                                          block.content.items.filter(
+                                            (_: any, i: number) => i !== index
+                                          );
+                                        updateBlock(block.id, {
+                                          content: {
+                                            ...block.content,
+                                            items: newItems,
+                                          },
+                                        });
+                                      }}
+                                      className="px-2"
+                                    >
+                                      <Trash2 size={16} />
+                                    </Button>
+                                  </div>
+                                )
+                              )
+                            ) : (
+                              <div className="text-sm text-gray-500">
+                                No items
+                              </div>
+                            )}
 
-                      {block.type === "two_column_box" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Left Title
-                            </label>
-                            <Input
-                              type="text"
-                              value={block.content.left?.title || ""}
-                              onChange={(e) =>
+                            {/* Add new item button */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const currentItems = Array.isArray(
+                                  block.content.items
+                                )
+                                  ? block.content.items
+                                  : [];
                                 updateBlock(block.id, {
                                   content: {
                                     ...block.content,
-                                    left: {
-                                      ...block.content.left,
-                                      title: e.target.value,
-                                    },
+                                    items: [...currentItems, "New item"],
                                   },
-                                })
-                              }
-                            />
-                            <label className="block text-sm font-medium mb-2 mt-2">
-                              Left Items (one per line)
-                            </label>
-                            <Textarea
-                              value={
-                                Array.isArray(block.content.left?.items)
-                                  ? block.content.left.items.join("\n")
-                                  : ""
-                              }
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    left: {
-                                      ...block.content.left,
-                                      items: e.target.value
-                                        .split("\n")
-                                        .filter((item) => item.trim()),
-                                    },
-                                  },
-                                })
-                              }
-                              rows={3}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Right Title
-                            </label>
-                            <Input
-                              type="text"
-                              value={block.content.right?.title || ""}
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    right: {
-                                      ...block.content.right,
-                                      title: e.target.value,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                            <label className="block text-sm font-medium mb-2 mt-2">
-                              Right Items (one per line)
-                            </label>
-                            <Textarea
-                              value={
-                                Array.isArray(block.content.right?.items)
-                                  ? block.content.right.items.join("\n")
-                                  : ""
-                              }
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    right: {
-                                      ...block.content.right,
-                                      items: e.target.value
-                                        .split("\n")
-                                        .filter((item) => item.trim()),
-                                    },
-                                  },
-                                })
-                              }
-                              rows={3}
-                            />
+                                });
+                              }}
+                              className="w-full mt-2"
+                            >
+                              <Plus size={16} className="mr-2" />
+                              Add Item
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -806,79 +698,63 @@ const CreateEditConsentView = () => {
                       )}
                     </div>
                   )}
-
-                  {/* Block preview */}
-                  <div className="mt-3 p-2 bg-muted rounded">
-                    <BlockRenderer block={block} />
-                  </div>
                 </div>
               ))}
             </div>
 
             {/* Add block controls */}
             <div className="border p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">Add Content Block</h3>
+              <h3 className="text-lg font-semibold mb-4">Add Content</h3>
               <div className="flex gap-2 flex-wrap">
                 {[
-                  { value: "section_header", label: "Section Header" },
-                  { value: "paragraph", label: "Paragraph" },
-                  { value: "list", label: "List" },
-                  { value: "info_box", label: "Info Box" },
-                  { value: "info_box_list", label: "Info Box List" },
-                  { value: "two_column_box", label: "Two Column Box" },
-                  { value: "two_column_info", label: "Two Column Info" },
-                ].map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => addBlock(type.value)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Add {type.label}
-                  </button>
-                ))}
+                  {
+                    value: "section_header",
+                    label: "Section Header",
+                    icon: Heading,
+                  },
+                  { value: "paragraph", label: "Paragraph", icon: FileText },
+                  { value: "list", label: "List", icon: List },
+                  { value: "info_box", label: "Info Box", icon: Info },
+                  {
+                    value: "info_box_list",
+                    label: "Info Box List",
+                    icon: CheckSquare,
+                  },
+                  {
+                    value: "two_column_info",
+                    label: "Two Column Info",
+                    icon: Columns,
+                  },
+                ].map((type) => {
+                  const IconComponent = type.icon;
+                  return (
+                    <Button
+                      key={type.value}
+                      onClick={() => addBlock(type.value)}
+                      size="sm"
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <IconComponent size={16} />
+                      {type.label}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* Right Side - Preview */}
-          <div className="space-y-6">
-            <div className="border rounded-lg sticky top-8">
-              <div className="px-6 py-4 border-b">
-                <h2 className="text-xl font-semibold">Live Preview</h2>
-              </div>
-              <div className="p-6 max-h-[80vh] overflow-y-auto">
-                {consentForm && (
-                  <div className="space-y-6 text-sm leading-relaxed">
-                    <div>
-                      <h1 className="text-xl font-bold mb-2">
-                        {consentForm.title}
-                      </h1>
-                      <p>{consentForm.subtitle}</p>
-                    </div>
-
-                    <div className="border-l-4 border-blue-500 pl-4 bg-blue-50 p-4 rounded-r-lg">
-                      <h3 className="font-semibold text-blue-900 mb-1">
-                        STUDY TITLE: {consentForm.studyTitle}
-                      </h3>
-                      <p className="text-blue-800 text-xs">
-                        Principal Investigator:{" "}
-                        {consentForm.principalInvestigator} • Institution:{" "}
-                        {consentForm.institution} • IRB Protocol:{" "}
-                        {consentForm.irbProtocol}
-                      </p>
-                    </div>
-
-                    {blocks.map((block) => (
-                      <div
-                        key={block.id}
-                        className="border-b border-gray-200 pb-4 last:border-b-0"
-                      >
-                        <BlockRenderer block={block} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="border rounded-lg sticky top-8">
+            <div className="px-6 py-4 border-b bg-gray-50 dark:bg-gray-900">
+              <h2 className="text-xl font-semibold">Live Preview</h2>
+            </div>
+            <div className="p-6 max-h-screen overflow-y-auto">
+              {previewData ? (
+                <ConsentFormPreview consentFormData={previewData} />
+              ) : (
+                <p className="text-gray-500">No consent form data to preview</p>
+              )}
             </div>
           </div>
         </div>

@@ -1,35 +1,25 @@
 import { toCamelCase } from "@/lib/utils";
 import { CONSENT_ENDPOINT } from "./endpoints";
 
-interface ResearchInfo {
-  studyTitle: string;
-  principalInvestigator: string;
-  institution: string;
-  irbProtocol: string;
-}
-
-interface Style {
-  background?: string;
-  leftColor?: string;
-  rightColor?: string;
-  fontWeight?: string;
-  border?: string;
-}
-
-interface Block {
+export interface ConsentFormBlock {
   id: string;
+  formId: number;
   type: string;
-  content: any; // Can be string, string[], or complex objects
-  style?: Style;
-  order: number;
+  content: any;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface ConsentForm {
+export interface ConsentForm {
   id: number;
   title: string;
   subtitle: string;
-  researchInfo: ResearchInfo;
-  blocks: Block[];
+  studyTitle: string;
+  researchLead: string;
+  institution: string;
+  irbNumber: string;
+  blocks: ConsentFormBlock[];
   createdAt: string;
   updatedAt: string;
 }
@@ -62,7 +52,6 @@ export async function getConsentForm(): Promise<{
       };
     }
 
-    // Convert to camelCase before returning
     const camelCaseData = toCamelCase((rawData as ConsentFormResponse).data);
     return { consentForm: camelCaseData };
   } catch (err) {

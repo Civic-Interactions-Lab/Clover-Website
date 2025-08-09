@@ -98,9 +98,12 @@ const App = (): JSX.Element => {
                     <Route path="/anonymous" element={<AnonymousLoginView />} />
                     <Route path="/getting-started" element={<Help />} />
                     <Route path="/passwordreset" element={<Reset />} />
+                    <Route
+                      path="/consent"
+                      element={<CreateEditConsentView />}
+                    />
                   </Route>
                 </Route>
-                <Route path="/consent" element={<CreateEditConsentView />} />
                 <Route path="/resetform" element={<PasswordCallback />} />
                 <Route path="/auth" element={<AuthCallback />} />
                 <Route path="/auth/vscode" element={<VSCodeAuthCallback />} />
