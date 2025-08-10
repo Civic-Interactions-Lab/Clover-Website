@@ -64,14 +64,18 @@ export const StudentProfileView = ({ userData }: StudentProfileViewProps) => {
                 />
                 <div className="text-center space-y-2">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {userData.firstName} {userData.lastName}
+                    {userData.firstName} {userData.lastName}{" "}
                   </h2>
 
-                  <div className="flex flex-col items-center gap-2">
+                  <p className="text-muted-foreground text-sm">
+                    pid: {userData.pid}
+                  </p>
+
+                  <div className="flex flex-row items-center gap-2">
                     <RoleBadge role={userData.role} />
                     <StatusBadge status={userData.status} />
                   </div>
-                </div>{" "}
+                </div>
               </div>
             </Card>
 

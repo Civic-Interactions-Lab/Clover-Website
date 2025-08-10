@@ -26,3 +26,5 @@ export const RESET_PASSWORD_REDIRECT = import.meta.env.VITE_API_URL
   : "http://localhost:5173/resetform";
 
 export const ERROR_ENDPOINT = `${BASE_ENDPOINT}/errors`;
+
+export const CONSENT_ENDPOINT = `${BASE_ENDPOINT}/consent/`;

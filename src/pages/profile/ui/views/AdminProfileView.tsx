@@ -1,6 +1,7 @@
 import {
   Activity,
   Calendar,
+  FilePenLine,
   Mail,
   PersonStanding,
   UserIcon,
@@ -19,12 +20,15 @@ import {
 import { formatActivityTimestamp } from "@/utils/timeConverter";
 import { User } from "@/types/user";
 import EditUserButton from "@/components/EditUserButton";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface AdminProfileViewProps {
   userData: User;
 }
 
 const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
+  const navigate = useNavigate();
   const { userActivity, progressData, loading } = useUserActivity(
     userData?.id,
     userData.settings.mode
@@ -58,14 +62,28 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                 />
                 <div className="text-center space-y-2">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {userData.firstName} {userData.lastName}
+                    {userData.firstName} {userData.lastName}{" "}
                   </h2>
 
-                  <div className="flex flex-col items-center gap-2">
+                  <p className="text-muted-foreground text-sm">
+                    pid: {userData.pid}
+                  </p>
+
+                  <div className="flex flex-row items-center gap-2">
                     <RoleBadge role={userData.role} />
                     <StatusBadge status={userData.status} />
                   </div>
-                </div>{" "}
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/consent")}
+                >
+                  View Consent Form
+                </Button>
               </div>
             </Card>
 
