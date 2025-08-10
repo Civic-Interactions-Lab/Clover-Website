@@ -68,9 +68,6 @@ function NavUser({ isMobile }: NavUserProps) {
           <DropdownMenuItem onClick={() => navigate("/profile")}>
             Profile <User2Icon className="w-4 h-4 ml-auto" />
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate("/consent")}>
-            Consent
-          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem

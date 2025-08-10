@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Glasses, X } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import { registerUser } from "@/api/auth";
@@ -7,9 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import ConsentForm from "./ConsentForm";
+import ConsentFormViewCheck from "./ConsentFormViewCheck";
 
 /**
  * SignUpForm component for user registration.
@@ -23,7 +21,6 @@ const SignUpForm = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [isConsent, setIsConsent] = useState(false);
-  const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
   const [hasViewedConsent, setHasViewedConsent] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -76,16 +73,8 @@ const SignUpForm = () => {
     setIsConsent(consented);
   };
 
-  const handleOpenConsentModal = () => {
-    setIsConsentModalOpen(true);
-  };
-
-  const handleCloseConsentModal = () => {
-    setIsConsentModalOpen(false);
-  };
-
-  const handleConsentViewed = () => {
-    setHasViewedConsent(true);
+  const handleConsentViewed = (hasViewed: boolean) => {
+    setHasViewedConsent(hasViewed);
   };
 
   return (
@@ -143,43 +132,12 @@ const SignUpForm = () => {
           </div>
 
           {/* Consent Checkbox */}
-          <div className="space-y-3">
-            <div className="space-y-2 w-full justify-center items-center flex flex-col">
-              <button
-                type="button"
-                onClick={handleOpenConsentModal}
-                className="text-sm text-primary hover:text-primary/80 hover:underline flex items-center gap-1"
-              >
-                <Glasses className="h-4 w-4" /> View consent form
-                {hasViewedConsent && <span className="text-green-600">✓</span>}
-              </button>
-              {!hasViewedConsent && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Please review the consent form to continue
-                </p>
-              )}
-            </div>
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="consent"
-                checked={isConsent}
-                onCheckedChange={(checked) => setIsConsent(!!checked)}
-                disabled={!hasViewedConsent}
-                className="mt-1"
-              />
-              <Label
-                htmlFor="consent"
-                className={`text-sm cursor-pointer leading-relaxed ${
-                  hasViewedConsent
-                    ? "text-gray-700 dark:text-gray-300"
-                    : "text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                I consent to Clover using the data collected from my usage for
-                research purposes only.
-              </Label>
-            </div>
-          </div>
+          <ConsentFormViewCheck
+            isConsent={isConsent}
+            onConsentChange={handleConsentChange}
+            onConsentViewed={handleConsentViewed}
+            showViewButton={true}
+          />
 
           <Button
             type="submit"
@@ -200,15 +158,6 @@ const SignUpForm = () => {
           </p>
         </form>
       </Card>
-
-      {/* Consent Modal */}
-      <ConsentForm
-        isOpen={isConsentModalOpen}
-        onClose={handleCloseConsentModal}
-        onConsentChange={handleConsentChange}
-        onConsentViewed={handleConsentViewed}
-        initialConsent={isConsent}
-      />
     </>
   );
 };

@@ -1,6 +1,7 @@
 import {
   Activity,
   Calendar,
+  FilePenLine,
   Mail,
   PersonStanding,
   UserIcon,
@@ -19,12 +20,15 @@ import {
 import { formatActivityTimestamp } from "@/utils/timeConverter";
 import { User } from "@/types/user";
 import EditUserButton from "@/components/EditUserButton";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface AdminProfileViewProps {
   userData: User;
 }
 
 const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
+  const navigate = useNavigate();
   const { userActivity, progressData, loading } = useUserActivity(
     userData?.id,
     userData.settings.mode
@@ -70,6 +74,16 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                     <StatusBadge status={userData.status} />
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/consent")}
+                >
+                  View Consent Form
+                </Button>
               </div>
             </Card>
 

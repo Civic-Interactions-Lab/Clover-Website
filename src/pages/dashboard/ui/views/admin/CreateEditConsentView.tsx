@@ -1,11 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
-import { toast } from "sonner";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import ConsentFormPreview from "@/pages/auth/ui/components/ConsentFormPreview";
-import { ConsentForm, ConsentFormBlock } from "@/api/consent";
 import {
   CheckSquare,
   Columns,
@@ -17,23 +15,288 @@ import {
   Plus,
   Trash2,
   X,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ConsentForm, ConsentFormBlock } from "@/types/consent";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Label } from "@/components/ui/label";
 
-// Debounce hook
-const useDebounce = (value: any, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+// Sortable Block Item Component
+interface SortableBlockItemProps {
+  block: ConsentFormBlock;
+  editingBlock: string | null;
+  setEditingBlock: (id: string | null) => void;
+  updateBlock: (blockId: string, updates: Partial<ConsentFormBlock>) => void;
+  deleteBlock: (blockId: string) => void;
+}
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
+const SortableBlockItem: React.FC<SortableBlockItemProps> = ({
+  block,
+  editingBlock,
+  setEditingBlock,
+  updateBlock,
+  deleteBlock,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: block.id });
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
-  return debouncedValue;
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`border p-4 rounded-lg ${isDragging ? "shadow-lg z-10" : ""}`}
+    >
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab hover:cursor-grabbing p-1 hover:bg-gray-100 rounded"
+          >
+            <GripVertical size={16} className="text-gray-400" />
+          </div>
+          <span className="text-sm">No. {block.sortOrder}</span>
+          <span className="mb-1">|</span>
+          <span className="text-xs">
+            {block.type.replace(/_/g, " ").toUpperCase()}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={editingBlock === block.id ? "outline" : "default"}
+            onClick={() =>
+              setEditingBlock(editingBlock === block.id ? null : block.id)
+            }
+          >
+            {editingBlock === block.id ? (
+              <span className="flex items-center gap-1.5">
+                <X /> Close
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Edit /> Edit
+              </span>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => deleteBlock(block.id)}
+            className="bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-700/70 border-red-200 hover:border-red-300"
+          >
+            <Trash2 /> Delete
+          </Button>
+        </div>
+      </div>
+
+      {/* Block content editor */}
+      {editingBlock === block.id && (
+        <div className="space-y-3 border-t pt-3">
+          {(block.type === "paragraph" ||
+            block.type === "section_header" ||
+            block.type === "info_box") && (
+            <Textarea
+              value={block.content.text || ""}
+              onChange={(e) =>
+                updateBlock(block.id, {
+                  content: {
+                    ...block.content,
+                    text: e.target.value,
+                  },
+                })
+              }
+              rows={3}
+              placeholder={`Enter ${block.type.replace("_", " ")} content...`}
+            />
+          )}
+
+          {(block.type === "list" || block.type === "info_box_list") && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                List Items
+              </label>
+              <div className="space-y-2">
+                {Array.isArray(block.content.items) &&
+                block.content.items.length > 0 ? (
+                  block.content.items.map((item: string, index: number) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <Input
+                        value={item}
+                        onChange={(e) => {
+                          const newItems = [...block.content.items];
+                          newItems[index] = e.target.value;
+                          updateBlock(block.id, {
+                            content: {
+                              ...block.content,
+                              items: newItems,
+                            },
+                          });
+                        }}
+                        placeholder={`Item ${index + 1}`}
+                        className="flex-1"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const newItems = block.content.items.filter(
+                            (_: any, i: number) => i !== index
+                          );
+                          updateBlock(block.id, {
+                            content: {
+                              ...block.content,
+                              items: newItems,
+                            },
+                          });
+                        }}
+                        className="px-2"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500">No items</div>
+                )}
+
+                {/* Add new item button */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const currentItems = Array.isArray(block.content.items)
+                      ? block.content.items
+                      : [];
+                    updateBlock(block.id, {
+                      content: {
+                        ...block.content,
+                        items: [...currentItems, "New item"],
+                      },
+                    });
+                  }}
+                  className="w-full mt-2"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Add Item
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {block.type === "two_column_info" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Left Title
+                </label>
+                <Input
+                  type="text"
+                  value={block.content.left?.title || ""}
+                  onChange={(e) =>
+                    updateBlock(block.id, {
+                      content: {
+                        ...block.content,
+                        left: {
+                          ...block.content.left,
+                          title: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+                <label className="block text-sm font-medium mb-2 mt-2">
+                  Left Content
+                </label>
+                <Textarea
+                  value={block.content.left?.content || ""}
+                  onChange={(e) =>
+                    updateBlock(block.id, {
+                      content: {
+                        ...block.content,
+                        left: {
+                          ...block.content.left,
+                          content: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Right Title
+                </label>
+                <Input
+                  type="text"
+                  value={block.content.right?.title || ""}
+                  onChange={(e) =>
+                    updateBlock(block.id, {
+                      content: {
+                        ...block.content,
+                        right: {
+                          ...block.content.right,
+                          title: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                />
+                <label className="block text-sm font-medium mb-2 mt-2">
+                  Right Content
+                </label>
+                <Textarea
+                  value={block.content.right?.content || ""}
+                  onChange={(e) =>
+                    updateBlock(block.id, {
+                      content: {
+                        ...block.content,
+                        right: {
+                          ...block.content.right,
+                          content: e.target.value,
+                        },
+                      },
+                    })
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const CreateEditConsentView = () => {
@@ -45,10 +308,20 @@ const CreateEditConsentView = () => {
     new Map()
   );
 
-  // Debounce pending updates
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   const debouncedUpdates = useDebounce(pendingUpdates, 500) as Map<string, any>;
 
-  // Convert database format to frontend format
   const dbBlockToFrontend = (dbBlock: any): ConsentFormBlock => ({
     id: dbBlock.id,
     formId: dbBlock.form_id,
@@ -72,7 +345,51 @@ const CreateEditConsentView = () => {
     blocks: (dbForm.blocks || []).map(dbBlockToFrontend),
   });
 
-  // Process debounced updates
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over || active.id === over.id) {
+        return;
+      }
+
+      const oldIndex = blocks.findIndex((block) => block.id === active.id);
+      const newIndex = blocks.findIndex((block) => block.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reorderedBlocks = arrayMove(blocks, oldIndex, newIndex);
+
+      const updatedBlocks = reorderedBlocks.map((block, index) => ({
+        ...block,
+        sortOrder: index + 1,
+      }));
+
+      setBlocks(updatedBlocks);
+
+      // Update sort orders in database
+      try {
+        const updates = updatedBlocks.map((block, index) => ({
+          id: block.id,
+          sort_order: index + 1,
+        }));
+
+        for (const update of updates) {
+          const { error } = await supabase
+            .from("consent_form_blocks")
+            .update({ sort_order: update.sort_order })
+            .eq("id", update.id);
+
+          if (error) throw error;
+        }
+      } catch (err) {
+        console.error("Failed to update block order:", err);
+        loadConsentForm();
+      }
+    },
+    [blocks]
+  );
+
   useEffect(() => {
     const processUpdates = async () => {
       if (debouncedUpdates.size === 0) return;
@@ -96,7 +413,6 @@ const CreateEditConsentView = () => {
           if (error) throw error;
         } catch (err) {
           console.error("Failed to update block:", err);
-          toast.error("Failed to save changes");
         }
       }
     };
@@ -104,7 +420,6 @@ const CreateEditConsentView = () => {
     processUpdates();
   }, [debouncedUpdates]);
 
-  // Load consent form and blocks
   const loadConsentForm = async () => {
     setLoading(true);
     try {
@@ -118,7 +433,6 @@ const CreateEditConsentView = () => {
 
       if (formError) {
         console.error("Error loading consent form:", formError);
-        toast.error("Failed to load consent form");
         return;
       }
 
@@ -134,7 +448,6 @@ const CreateEditConsentView = () => {
 
         if (blocksError) {
           console.error("Error loading blocks:", blocksError);
-          toast.error("Failed to load blocks");
           return;
         }
 
@@ -142,7 +455,6 @@ const CreateEditConsentView = () => {
       }
     } catch (err) {
       console.error("Error:", err);
-      toast.error("Failed to load consent form");
     } finally {
       setLoading(false);
     }
@@ -152,7 +464,6 @@ const CreateEditConsentView = () => {
   const updateFormField = async (field: string, value: any) => {
     if (!consentForm) return;
 
-    // Update local state immediately
     setConsentForm((prev) => (prev ? { ...prev, [field]: value } : null));
 
     try {
@@ -164,7 +475,6 @@ const CreateEditConsentView = () => {
       if (error) throw error;
     } catch (err) {
       console.error(`Failed to update ${field}:`, err);
-      toast.error(`Failed to update ${field}`);
       setConsentForm((prev) =>
         prev
           ? { ...prev, [field]: consentForm[field as keyof ConsentForm] }
@@ -173,17 +483,14 @@ const CreateEditConsentView = () => {
     }
   };
 
-  // Update individual block (with debouncing)
   const updateBlock = useCallback(
     (blockId: string, updates: Partial<ConsentFormBlock>) => {
-      // Update local state immediately for responsive UI
       setBlocks((prev) =>
         prev.map((block) =>
           block.id === blockId ? { ...block, ...updates } : block
         )
       );
 
-      // Add to pending updates for debounced database save
       setPendingUpdates((prev) => {
         const newMap = new Map(prev);
         const existing = newMap.get(blockId) || {};
@@ -194,7 +501,6 @@ const CreateEditConsentView = () => {
     []
   );
 
-  // Add new block (immediate update)
   const addBlock = async (type: string) => {
     if (!consentForm) return;
 
@@ -217,15 +523,11 @@ const CreateEditConsentView = () => {
       const newBlock = dbBlockToFrontend(data);
       setBlocks((prev) => [...prev, newBlock]);
       setEditingBlock(newBlock.id);
-
-      toast.success("Block added successfully");
     } catch (err) {
       console.error("Failed to add block:", err);
-      toast.error("Failed to add block");
     }
   };
 
-  // Delete block (immediate update)
   const deleteBlock = async (blockId: string) => {
     try {
       const { error } = await supabase
@@ -236,14 +538,11 @@ const CreateEditConsentView = () => {
       if (error) throw error;
 
       setBlocks((prev) => prev.filter((block) => block.id !== blockId));
-      toast.success("Block deleted successfully");
     } catch (err) {
       console.error("Failed to delete block:", err);
-      toast.error("Failed to delete block");
     }
   };
 
-  // Real-time subscriptions
   useEffect(() => {
     loadConsentForm();
 
@@ -368,7 +667,6 @@ const CreateEditConsentView = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="w-8 h-8 animate-spin mx-auto mb-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-          <p>Loading consent form...</p>
         </div>
       </div>
     );
@@ -381,365 +679,163 @@ const CreateEditConsentView = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Editor */}
-          <div className="space-y-6">
-            {/* Form metadata editor */}
-            <div className="border p-6 rounded-lg">
-              <h2 className="text-xl font-semibold mb-4">Form Details</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Title
-                  </label>
-                  <Input
-                    type="text"
-                    value={consentForm?.title || ""}
-                    onChange={(e) => updateFormField("title", e.target.value)}
-                    placeholder="Consent form title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Subtitle
-                  </label>
-                  <Input
-                    type="text"
-                    value={consentForm?.subtitle || ""}
-                    onChange={(e) =>
-                      updateFormField("subtitle", e.target.value)
-                    }
-                    placeholder="Consent form subtitle"
-                  />
-                </div>
-                {/* Research info fields */}
-                <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-lg sticky top-8 border">
+            <div className="px-6 py-4 border-b bg-gray-50 dark:bg-gray-900 rounded-t-lg">
+              <h2 className="text-xl font-semibold">Edit View</h2>
+            </div>
+            <div className="space-y-6 max-h-screen overflow-y-auto px-4">
+              {/* Form metadata editor */}
+              <div className="border p-6 rounded-lg mt-6">
+                <h2 className="text-xl font-semibold mb-4">Form Details</h2>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Study Title
-                    </label>
+                    <Label className="block text-sm font-medium mb-2">
+                      Title
+                    </Label>
                     <Input
                       type="text"
-                      value={consentForm?.studyTitle || ""}
-                      onChange={(e) =>
-                        updateFormField("study_title", e.target.value)
-                      }
+                      value={consentForm?.title || ""}
+                      onChange={(e) => updateFormField("title", e.target.value)}
+                      placeholder="Consent form title"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Principal Investigator
-                    </label>
+                    <Label className="block text-sm font-medium mb-2">
+                      Subtitle
+                    </Label>
                     <Input
                       type="text"
-                      value={consentForm?.researchLead || ""}
+                      value={consentForm?.subtitle || ""}
                       onChange={(e) =>
-                        updateFormField("research_lead", e.target.value)
+                        updateFormField("subtitle", e.target.value)
                       }
+                      placeholder="Consent form subtitle"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Institution
-                    </label>
-                    <Input
-                      type="text"
-                      value={consentForm?.institution || ""}
-                      onChange={(e) =>
-                        updateFormField("institution", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      IRB Protocol
-                    </label>
-                    <Input
-                      type="text"
-                      value={consentForm?.irbNumber || ""}
-                      onChange={(e) =>
-                        updateFormField("irb_number", e.target.value)
-                      }
-                    />
+                  {/* Research info fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Study Title
+                      </label>
+                      <Input
+                        type="text"
+                        value={consentForm?.studyTitle || ""}
+                        onChange={(e) =>
+                          updateFormField("study_title", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Principal Investigator
+                      </Label>
+                      <Input
+                        type="text"
+                        value={consentForm?.researchLead || ""}
+                        onChange={(e) =>
+                          updateFormField("research_lead", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Institution
+                      </Label>
+                      <Input
+                        type="text"
+                        value={consentForm?.institution || ""}
+                        onChange={(e) =>
+                          updateFormField("institution", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        IRB Protocol
+                      </Label>
+                      <Input
+                        type="text"
+                        value={consentForm?.irbNumber || ""}
+                        onChange={(e) =>
+                          updateFormField("irb_number", e.target.value)
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Blocks editor */}
-            <div className="space-y-4">
-              {blocks.map((block) => (
-                <div key={block.id} className="border p-4 rounded-lg">
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">No. {block.sortOrder}</span>
-                      <span className="mb-1">|</span>
-                      <span className="text-xs">
-                        {block.type.replace(/_/g, " ").toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
+              {/* Blocks editor with drag and drop */}
+              <div className="space-y-4">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={blocks.map((block) => block.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {blocks.map((block) => (
+                      <SortableBlockItem
+                        key={block.id}
+                        block={block}
+                        editingBlock={editingBlock}
+                        setEditingBlock={setEditingBlock}
+                        updateBlock={updateBlock}
+                        deleteBlock={deleteBlock}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+
+                {blocks.length === 0 && (
+                  <div className="text-center text-gray-500 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    No blocks yet. Add some content blocks to get started.
+                  </div>
+                )}
+              </div>
+
+              {/* Add block controls */}
+              <div className="border p-6 rounded-lg">
+                <h3 className="text-lg font-semibold mb-4">Add Content</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    {
+                      value: "section_header",
+                      label: "Section Header",
+                      icon: Heading,
+                    },
+                    { value: "paragraph", label: "Paragraph", icon: FileText },
+                    { value: "list", label: "List", icon: List },
+                    { value: "info_box", label: "Info Box", icon: Info },
+                    {
+                      value: "info_box_list",
+                      label: "Info Box List",
+                      icon: CheckSquare,
+                    },
+                    {
+                      value: "two_column_info",
+                      label: "Two Column Info",
+                      icon: Columns,
+                    },
+                  ].map((type) => {
+                    const IconComponent = type.icon;
+                    return (
                       <Button
-                        size="sm"
-                        variant={
-                          editingBlock === block.id ? "outline" : "default"
-                        }
-                        onClick={() =>
-                          setEditingBlock(
-                            editingBlock === block.id ? null : block.id
-                          )
-                        }
-                      >
-                        {editingBlock === block.id ? (
-                          <span className="flex items-center gap-1.5">
-                            <X /> Close
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5">
-                            <Edit /> Edit
-                          </span>
-                        )}
-                      </Button>
-                      <Button
+                        key={type.value}
+                        onClick={() => addBlock(type.value)}
                         size="sm"
                         variant="outline"
-                        onClick={() => deleteBlock(block.id)}
-                        className="bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-700/70 border-red-200 hover:border-red-300"
+                        className="flex items-center gap-2"
                       >
-                        <Trash2 /> Delete
+                        <IconComponent size={16} />
+                        {type.label}
                       </Button>
-                    </div>
-                  </div>
-
-                  {/* Block content editor */}
-                  {editingBlock === block.id && (
-                    <div className="space-y-3 border-t pt-3">
-                      {(block.type === "paragraph" ||
-                        block.type === "section_header" ||
-                        block.type === "info_box") && (
-                        <Textarea
-                          value={block.content.text || ""}
-                          onChange={(e) =>
-                            updateBlock(block.id, {
-                              content: {
-                                ...block.content,
-                                text: e.target.value,
-                              },
-                            })
-                          }
-                          rows={3}
-                          placeholder={`Enter ${block.type.replace("_", " ")} content...`}
-                        />
-                      )}
-
-                      {(block.type === "list" ||
-                        block.type === "info_box_list") && (
-                        <div>
-                          <label className="block text-sm font-medium mb-2">
-                            List Items
-                          </label>
-                          <div className="space-y-2">
-                            {Array.isArray(block.content.items) &&
-                            block.content.items.length > 0 ? (
-                              block.content.items.map(
-                                (item: string, index: number) => (
-                                  <div
-                                    key={index}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <Input
-                                      value={item}
-                                      onChange={(e) => {
-                                        const newItems = [
-                                          ...block.content.items,
-                                        ];
-                                        newItems[index] = e.target.value;
-                                        updateBlock(block.id, {
-                                          content: {
-                                            ...block.content,
-                                            items: newItems,
-                                          },
-                                        });
-                                      }}
-                                      placeholder={`Item ${index + 1}`}
-                                      className="flex-1"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        const newItems =
-                                          block.content.items.filter(
-                                            (_: any, i: number) => i !== index
-                                          );
-                                        updateBlock(block.id, {
-                                          content: {
-                                            ...block.content,
-                                            items: newItems,
-                                          },
-                                        });
-                                      }}
-                                      className="px-2"
-                                    >
-                                      <Trash2 size={16} />
-                                    </Button>
-                                  </div>
-                                )
-                              )
-                            ) : (
-                              <div className="text-sm text-gray-500">
-                                No items
-                              </div>
-                            )}
-
-                            {/* Add new item button */}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const currentItems = Array.isArray(
-                                  block.content.items
-                                )
-                                  ? block.content.items
-                                  : [];
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    items: [...currentItems, "New item"],
-                                  },
-                                });
-                              }}
-                              className="w-full mt-2"
-                            >
-                              <Plus size={16} className="mr-2" />
-                              Add Item
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {block.type === "two_column_info" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Left Title
-                            </label>
-                            <Input
-                              type="text"
-                              value={block.content.left?.title || ""}
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    left: {
-                                      ...block.content.left,
-                                      title: e.target.value,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                            <label className="block text-sm font-medium mb-2 mt-2">
-                              Left Content
-                            </label>
-                            <Textarea
-                              value={block.content.left?.content || ""}
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    left: {
-                                      ...block.content.left,
-                                      content: e.target.value,
-                                    },
-                                  },
-                                })
-                              }
-                              rows={3}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Right Title
-                            </label>
-                            <Input
-                              type="text"
-                              value={block.content.right?.title || ""}
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    right: {
-                                      ...block.content.right,
-                                      title: e.target.value,
-                                    },
-                                  },
-                                })
-                              }
-                            />
-                            <label className="block text-sm font-medium mb-2 mt-2">
-                              Right Content
-                            </label>
-                            <Textarea
-                              value={block.content.right?.content || ""}
-                              onChange={(e) =>
-                                updateBlock(block.id, {
-                                  content: {
-                                    ...block.content,
-                                    right: {
-                                      ...block.content.right,
-                                      content: e.target.value,
-                                    },
-                                  },
-                                })
-                              }
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-
-            {/* Add block controls */}
-            <div className="border p-6 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">Add Content</h3>
-              <div className="flex gap-2 flex-wrap">
-                {[
-                  {
-                    value: "section_header",
-                    label: "Section Header",
-                    icon: Heading,
-                  },
-                  { value: "paragraph", label: "Paragraph", icon: FileText },
-                  { value: "list", label: "List", icon: List },
-                  { value: "info_box", label: "Info Box", icon: Info },
-                  {
-                    value: "info_box_list",
-                    label: "Info Box List",
-                    icon: CheckSquare,
-                  },
-                  {
-                    value: "two_column_info",
-                    label: "Two Column Info",
-                    icon: Columns,
-                  },
-                ].map((type) => {
-                  const IconComponent = type.icon;
-                  return (
-                    <Button
-                      key={type.value}
-                      onClick={() => addBlock(type.value)}
-                      size="sm"
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      <IconComponent size={16} />
-                      {type.label}
-                    </Button>
-                  );
-                })}
               </div>
             </div>
           </div>

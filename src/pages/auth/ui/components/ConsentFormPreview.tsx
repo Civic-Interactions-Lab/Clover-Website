@@ -1,29 +1,6 @@
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConsentForm, ConsentFormBlock } from "@/types/consent";
 import { X } from "lucide-react";
-import React from "react";
-
-export interface ConsentFormBlock {
-  id: string;
-  formId: number;
-  type: string;
-  content: any;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ConsentForm {
-  id: number;
-  title: string;
-  subtitle: string;
-  studyTitle: string;
-  researchLead: string;
-  institution: string;
-  irbNumber: string;
-  blocks: ConsentFormBlock[];
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface ConsentFormPreviewProps {
   consentFormData: ConsentForm;
@@ -31,7 +8,6 @@ interface ConsentFormPreviewProps {
   showHeader?: boolean;
 }
 
-// Helper functions for content extraction
 const getTextContent = (content: any): string => {
   if (typeof content === "string") return content;
   if (content?.text) return content.text;
@@ -45,7 +21,6 @@ const getArrayContent = (content: any): string[] => {
   return [];
 };
 
-// Component to render individual blocks
 const BlockRenderer = ({ block }: { block: ConsentFormBlock }) => {
   const { type, content } = block;
 
@@ -217,11 +192,11 @@ const ConsentFormPreview = ({
       <div className="space-y-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
         {/* Research Information Header */}
         {(consentFormData.studyTitle || consentFormData.researchLead) && (
-          <div className="border-l-4 border-blue-500 pl-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-r-lg">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+          <div className="border-l-4 border-primary pl-4 bg-primary/10 dark:bg-primary/20 p-4 rounded-r-lg">
+            <h3 className="font-semibold text-primary">
               RESEARCH TITLE: {consentFormData.studyTitle}
             </h3>
-            <p className="text-blue-800 dark:text-blue-200 text-xs mt-1">
+            <p className="text-primary/80 dark:text-blue-200 text-xs mt-1">
               Principal Investigator: {consentFormData.researchLead} •
               Institution: {consentFormData.institution} • IRB Protocol:{" "}
               {consentFormData.irbNumber}

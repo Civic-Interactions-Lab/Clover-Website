@@ -10,12 +10,15 @@ import { generateSlug } from "random-word-slugs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dice1, Dices } from "lucide-react";
+import ConsentFormViewCheck from "../components/ConsentFormViewCheck";
 
 const ANONYMOUS_PASSWORD = import.meta.env.VITE_ANONYMOUS_SHARED_PASSWORD;
 
 const AnonymousLoginView = () => {
   const [username, setUsername] = useState("");
   const [isConsent, setIsConsent] = useState(false);
+  const [hasViewedConsent, setHasViewedConsent] = useState(false);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -82,7 +85,7 @@ const AnonymousLoginView = () => {
         "",
         email,
         ANONYMOUS_PASSWORD,
-        false
+        isConsent
       );
 
       if (registerResult.error) {
@@ -125,6 +128,14 @@ const AnonymousLoginView = () => {
     generateRandomUsername();
   }, []);
 
+  const handleConsentChange = (consented: boolean) => {
+    setIsConsent(consented);
+  };
+
+  const handleConsentViewed = (hasViewed: boolean) => {
+    setHasViewedConsent(hasViewed);
+  };
+
   return (
     <div className="flex flex-col justify-center items-center w-full text-text h-[calc(100vh-12rem)]">
       <Card className="p-8 w-full max-w-md">
@@ -164,26 +175,23 @@ const AnonymousLoginView = () => {
 
           <div className="h-6" />
 
-          {/* Consent Checkbox */}
-          <div className="flex items-start space-x-3">
-            <Checkbox
-              id="consent"
-              checked={isConsent}
-              onCheckedChange={(checked) => setIsConsent(!!checked)}
-              className="mt-1"
-            />
-            <Label
-              htmlFor="consent"
-              className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer leading-relaxed"
-            >
-              I consent to Clover using the data collected from my usage for
-              research purposes only.
-            </Label>
-          </div>
+          {/* Consent Checkbox Component */}
+          <ConsentFormViewCheck
+            isConsent={isConsent}
+            onConsentChange={handleConsentChange}
+            onConsentViewed={handleConsentViewed}
+            showViewButton={true}
+            disabled={loading}
+          />
 
           <Button
             onClick={handleSubmit}
-            disabled={!username.trim() || username.trim().length < 6 || loading}
+            disabled={
+              !username.trim() ||
+              username.trim().length < 6 ||
+              loading ||
+              !hasViewedConsent
+            }
             className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-6 text-md"
           >
             {loading ? "Creating Account..." : "Create Anonymous Account"}
