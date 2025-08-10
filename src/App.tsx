@@ -53,7 +53,6 @@ const ProtectedRoute = (): JSX.Element => {
  * @returns {JSX.Element} - The main application component.
  */
 const App = (): JSX.Element => {
-  console.log("Run this");
   return (
     <QueryClientProvider client={queryClient}>
       <EarlyAccessProvider>

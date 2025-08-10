@@ -30,13 +30,17 @@ const LINE_BY_LINE_MODE = {
   getId: (log: UserActivityLogItem) =>
     (log as LineSuggestionLogResponse).lineSuggestionId,
   transform: (
-    data: { main_line?: string; fixed_line?: string; line_index: number },
+    data: {
+      correct_line?: string;
+      incorrect_line?: string;
+      shown_bug: boolean;
+    },
     base: BaseSuggestion
   ): LineByLineSuggestion => ({
     ...base,
-    mainLine: data.main_line || "",
-    fixedLine: data.fixed_line,
-    lineIndex: data.line_index,
+    correctLine: data.correct_line || "",
+    incorrectLine: data.incorrect_line || "",
+    shownBug: data.shown_bug,
   }),
 } as const;
 

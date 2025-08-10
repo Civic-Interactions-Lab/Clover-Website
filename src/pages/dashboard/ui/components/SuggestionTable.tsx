@@ -294,7 +294,7 @@ export const SuggestionDetailCard = ({
             <div className="flex-1 flex flex-col min-h-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                 <h4 className="font-semibold text-gray-700 dark:text-gray-300">
-                  Original Line (Index: {lineSuggestion.lineIndex || 0})
+                  Original Line
                 </h4>
                 <h4 className="font-semibold text-gray-700 dark:text-gray-300">
                   Fixed Line
@@ -302,10 +302,10 @@ export const SuggestionDetailCard = ({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
                 <pre className="bg-sidebar p-4 rounded-md overflow-x-auto text-sm overflow-auto max-h-36">
-                  {lineSuggestion.mainLine || "No original line provided"}
+                  {lineSuggestion.correctLine || "No original line provided"}
                 </pre>
                 <pre className="bg-sidebar p-4 rounded-md overflow-x-auto text-sm overflow-auto max-h-36">
-                  {lineSuggestion.fixedLine || "No fixed line provided"}
+                  {lineSuggestion.incorrectLine || "No fixed line provided"}
                 </pre>
               </div>
             </div>
@@ -413,10 +413,17 @@ export const SuggestionDetailCard = ({
           Prompt
         </h4>
         <div className="bg-sidebar p-4 rounded-md text-sm whitespace-pre-wrap overflow-auto max-h-36">
-          {suggestion.refinedPrompt || "Unknown prompt"}
+          {suggestion.prompt || "Unknown prompt"}
         </div>
       </div>
-
+      <div>
+        <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          Refined Prompt
+        </h4>
+        <div className="bg-sidebar p-4 rounded-md text-sm whitespace-pre-wrap overflow-auto max-h-36">
+          {suggestion.refinedPrompt || "Refined prompt not generated yet"}
+        </div>
+      </div>
       {suggestion.explanations && (
         <div>
           <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -424,7 +431,9 @@ export const SuggestionDetailCard = ({
           </h4>
           <div className="bg-sidebar p-4 rounded-md text-sm overflow-auto max-h-62">
             <ul className="space-y-2 list-disc list-inside text-gray-600 dark:text-gray-300 leading-relaxed marker:text-primary">
-              {suggestion.explanations.map((item, index) => (
+              {(
+                suggestion.explanations ?? "Explanations not generated yet"
+              ).map((item, index) => (
                 <li key={index} className="pl-2">
                   {item}
                 </li>
