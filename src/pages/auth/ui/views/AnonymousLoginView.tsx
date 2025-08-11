@@ -2,19 +2,20 @@ import { registerUser } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/supabaseClient";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { generateSlug } from "random-word-slugs";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Dice1, Dices } from "lucide-react";
+import { Dices, LogIn, UserPlus } from "lucide-react";
 import ConsentFormViewCheck from "../components/ConsentFormViewCheck";
 
 const ANONYMOUS_PASSWORD = import.meta.env.VITE_ANONYMOUS_SHARED_PASSWORD;
 
 const AnonymousLoginView = () => {
+  const [mode, setMode] = useState("signin"); // "signin" or "signup"
   const [username, setUsername] = useState("");
   const [isConsent, setIsConsent] = useState(false);
   const [hasViewedConsent, setHasViewedConsent] = useState(false);
@@ -57,7 +58,42 @@ const AnonymousLoginView = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSignIn = async () => {
+    if (!username.trim()) {
+      setError("Please enter your username");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const email = `${username.trim().toLowerCase()}@anonymous.com`;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: ANONYMOUS_PASSWORD,
+      });
+
+      if (error) {
+        setError(
+          "No account found with this username. Try creating a new one."
+        );
+        return;
+      }
+
+      if (data) {
+        toast.success("Sign in anonymous successfully!");
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (err) {
+      console.error("Anonymous sign in error:", err);
+      setError("Failed to sign in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async () => {
     if (!username.trim()) {
       setError("Please enter a username or generate one");
       return;
@@ -123,10 +159,18 @@ const AnonymousLoginView = () => {
     setError("");
   };
 
-  // Generate initial username on component mount
-  React.useEffect(() => {
-    generateRandomUsername();
-  }, []);
+  const handleTabChange = (newMode: string) => {
+    setMode(newMode as "signin" | "signup");
+    setError("");
+    setUsername("");
+    setIsConsent(false);
+    setHasViewedConsent(false);
+
+    // Generate username for signup mode
+    if (newMode === "signup") {
+      setTimeout(() => generateRandomUsername(), 0);
+    }
+  };
 
   const handleConsentChange = (consented: boolean) => {
     setIsConsent(consented);
@@ -137,66 +181,141 @@ const AnonymousLoginView = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center w-full text-text h-[calc(100vh-12rem)]">
+    <div className="flex flex-col justify-center items-center w-full text-text flex-1">
       <Card className="p-8 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6">
-          Create Anonymous Account
-        </h2>
+        <Tabs value={mode} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="signin" className="flex items-center gap-2">
+              <LogIn size={16} />
+              Sign In
+            </TabsTrigger>
+            <TabsTrigger value="signup" className="flex items-center gap-2">
+              <UserPlus size={16} />
+              Sign Up
+            </TabsTrigger>
+          </TabsList>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded text-red-400 text-sm text-center">
-            {error}
-          </div>
-        )}
+          <TabsContent value="signin" className="mt-0">
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Sign In Anonymous
+            </h2>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
-              Choose your username:
-            </label>
-            <Input
-              type="text"
-              placeholder="e.g. happy-dolphin"
-              value={username}
-              onChange={handleUsernameChange}
-              className="w-full text-center text-lg font-mono bg-gray-900 border-gray-600 text-white placeholder-gray-400 py-6"
-              disabled={loading}
-            />
-          </div>
+            {error && (
+              <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded text-red-400 text-sm text-center">
+                {error}
+              </div>
+            )}
 
-          <Button
-            onClick={generateRandomUsername}
-            disabled={loading}
-            variant="outline"
-            className="w-full border border-gray-400 py-6 text-md"
-          >
-            <Dices className="inline-block" /> Generate New Username
-          </Button>
+            <div className="space-y-4">
+              <div>
+                <Label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Enter your username:
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="your-username"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  className="w-full text-center text-lg font-mono border-gray-600 placeholder-gray-400 py-6"
+                  disabled={loading}
+                />
+              </div>
 
-          <div className="h-6" />
+              <Button
+                onClick={handleSignIn}
+                disabled={
+                  !username.trim() || username.trim().length < 6 || loading
+                }
+                className="w-full disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-6 text-md"
+              >
+                {loading ? "Signing In..." : "Sign In"}
+              </Button>
+            </div>
 
-          {/* Consent Checkbox Component */}
-          <ConsentFormViewCheck
-            isConsent={isConsent}
-            onConsentChange={handleConsentChange}
-            onConsentViewed={handleConsentViewed}
-            showViewButton={true}
-            disabled={loading}
-          />
+            <div className="mt-4 text-xs text-gray-400">
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  Anonymous accounts allow you to use Clover without providing
+                  personal information.
+                </li>
+                <li>
+                  Enter the username you used when creating your anonymous
+                  account.
+                </li>
+              </ul>
+            </div>
+          </TabsContent>
 
-          <Button
-            onClick={handleSubmit}
-            disabled={
-              !username.trim() ||
-              username.trim().length < 6 ||
-              loading ||
-              !hasViewedConsent
-            }
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-6 text-md"
-          >
-            {loading ? "Creating Account..." : "Create Anonymous Account"}
-          </Button>
-        </div>
+          <TabsContent value="signup" className="mt-0">
+            <h2 className="text-2xl font-bold text-center mb-6">
+              Create Anonymous Account
+            </h2>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-600/20 border border-red-600/30 rounded text-red-400 text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <Label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Choose your username:
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. happy-dolphin"
+                  value={username}
+                  onChange={handleUsernameChange}
+                  className="w-full text-center text-lg font-mono  border-gray-600 placeholder-gray-400 py-6"
+                  disabled={loading}
+                />
+              </div>
+
+              <Button
+                onClick={generateRandomUsername}
+                disabled={loading}
+                variant="outline"
+                className="w-full border py-6 text-md"
+              >
+                <Dices className="inline-block" /> Generate New Username
+              </Button>
+
+              <div className="h-6" />
+
+              {/* Consent Checkbox Component */}
+              <ConsentFormViewCheck
+                isConsent={isConsent}
+                onConsentChange={handleConsentChange}
+                onConsentViewed={handleConsentViewed}
+                showViewButton={true}
+                disabled={loading}
+              />
+
+              <Button
+                onClick={handleSignUp}
+                disabled={
+                  !username.trim() ||
+                  username.trim().length < 6 ||
+                  loading ||
+                  !hasViewedConsent
+                }
+                className="w-full disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-6 text-md"
+              >
+                {loading ? "Creating Account..." : "Create Anonymous Account"}
+              </Button>
+            </div>
+
+            <div className="mt-4 text-xs text-gray-400">
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  Anonymous accounts allow you to use Clover without providing
+                  personal information.
+                </li>
+              </ul>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="mt-6 text-center">
           <button
@@ -205,13 +324,6 @@ const AnonymousLoginView = () => {
           >
             ← Back to Login
           </button>
-        </div>
-
-        <div className="mt-4 text-center text-xs text-gray-400">
-          <p>
-            Anonymous accounts allow you to use Clover without providing
-            personal information.
-          </p>
         </div>
       </Card>
     </div>
