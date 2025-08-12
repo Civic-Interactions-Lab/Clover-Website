@@ -16,6 +16,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 
+# Install Git and clean up apt cache to reduce image size
+RUN apt-get update && \
+    apt-get install -y git && \
+    rm -rf /var/lib/apt/lists/*
+
 # Create .env file with values
 RUN echo "VITE_SUPABASE_URL=${SUPABASE_URL}" >> /app/.env && \
     echo "VITE_SUPABASE_ANON_KEY=${SUPABASE_KEY}" >> /app/.env && \
@@ -30,7 +35,7 @@ FROM nginx:alpine
 # Copy the built app from the builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY .config/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80 for serving the React app
 EXPOSE 80
