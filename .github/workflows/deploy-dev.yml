@@ -1,0 +1,79 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+env:
+      REMOTE_DIR: /home/tug54949/apps/clover-dev
+      ENV_FILE: /home/tug54949/envs/clover.dev.env   
+      PROJECT: clover-dev
+      COMPOSE_FILE: docker-compose.yml              
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH (bastion + target)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CIS_SSH_KEY }}" > ~/.ssh/cis-linux-new
+          chmod 600 ~/.ssh/cis-linux-new
+          # pre-populate known_hosts to avoid interactive prompts
+          ssh-keyscan -H cis-linux2.temple.edu >> ~/.ssh/known_hosts
+          ssh-keyscan -H cis-wangstu1         >> ~/.ssh/known_hosts
+
+      - name: Ensure remote dir exists
+        run: |
+          ssh -i ~/.ssh/cis-linux-new \
+            -J "${{ secrets.CIS_USER }}@cis-linux2.temple.edu" \
+            "${{ secrets.CIS_USER }}@cis-wangstu1" \
+            "mkdir -p '$REMOTE_DIR'"
+
+      - name: Sync code to target (via ProxyJump)
+        run: |
+          rsync -az --delete \
+            --exclude '.git' --exclude '.github' \
+            -e "ssh -i ~/.ssh/cis-linux-new -J ${{ secrets.CIS_USER }}@cis-linux2.temple.edu" \
+            ./ "${{ secrets.CIS_USER }}@cis-wangstu1:$REMOTE_DIR/"
+
+      - name: Compose up on target (with sudo)
+        env:
+          SUDO_PASS: ${{ secrets.SUDO_PASS }}
+        run: |
+          ssh -i ~/.ssh/cis-linux-new \
+            -J "${{ secrets.CIS_USER }}@cis-linux2.temple.edu" \
+            "${{ secrets.CIS_USER }}@cis-wangstu1" "bash -s" <<EOF
+          set -euo pipefail
+          APP_DIR="$REMOTE_DIR"
+          ENV_FILE="$ENV_FILE"
+          PROJECT="$PROJECT"
+          COMPOSE_FILE="$COMPOSE_FILE"
+
+          cd "\$APP_DIR"
+
+          # Pick compose v2 or v1
+          if docker compose version >/dev/null 2>&1; then
+            COMPOSE="docker compose"
+          elif command -v docker-compose >/dev/null 2>&1; then
+            COMPOSE="docker-compose"
+          else
+            echo "Docker Compose not found on target" >&2
+            exit 1
+          fi
+
+          # Build + deploy (sudo requires password; supply via stdin)
+          printf "%s\n" "$SUDO_PASS" | sudo -S -p "" \$COMPOSE -p "\$PROJECT" \
+            --env-file "\$ENV_FILE" \
+            -f "\$COMPOSE_FILE" up -d --build --remove-orphans
+
+          # Optional: clean dangling images
+          # printf "%s\n" "$SUDO_PASS" | sudo -S -p "" docker image prune -f
+          EOF
