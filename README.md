@@ -50,6 +50,13 @@ To run the development server use
 npm run dev
 ```
 
+### Building the Dockfile
+docker build \ 
+  --build-arg SUPABASE_URL=<SupabaseURL> \
+  --build-arg SUPABASE_KEY= <SupabaseAnonKey> \
+  --build-arg BASE_URL=<API URL> -t clover-website:latest .
+
+
 ### Environment Variables
 
 See [.env.example](./.env.example) for where to get all the variables you will need. Mainly a Supabase project and a Google Gemini API key.
