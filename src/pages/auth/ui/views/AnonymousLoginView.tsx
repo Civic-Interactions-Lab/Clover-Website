@@ -115,7 +115,6 @@ const AnonymousLoginView = () => {
 
       const email = `${username.trim().toLowerCase()}@anonymous.com`;
 
-      // Register through your existing API function
       const registerResult = await registerUser(
         username.trim(),
         "",
