@@ -179,9 +179,6 @@ const ConsentFormPreview = ({
             <CardTitle className="text-xl text-gray-900 dark:text-white">
               {consentFormData.title}
             </CardTitle>
-            <CardDescription className="mt-1">
-              {consentFormData.subtitle}
-            </CardDescription>
           </div>
           <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ml-4">
             <X size={20} />
@@ -190,17 +187,63 @@ const ConsentFormPreview = ({
       )}
 
       <div className="space-y-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-        {/* Research Information Header */}
-        {(consentFormData.studyTitle || consentFormData.researchLead) && (
+        {/* Research Information Header - Updated to match actual database fields */}
+        {(consentFormData.principalInvestigator ||
+          consentFormData.institution ||
+          consentFormData.irbProtocol) && (
           <div className="border-l-4 border-primary pl-4 bg-primary/10 dark:bg-primary/20 p-4 rounded-r-lg">
-            <h3 className="font-semibold text-primary">
-              RESEARCH TITLE: {consentFormData.studyTitle}
+            <h3 className="font-semibold text-primary mb-2">
+              RESEARCH INFORMATION
             </h3>
-            <p className="text-primary/80 dark:text-blue-200 text-xs mt-1">
-              Principal Investigator: {consentFormData.researchLead} •
-              Institution: {consentFormData.institution} • IRB Protocol:{" "}
-              {consentFormData.irbNumber}
-            </p>
+            <div className="space-y-1 text-primary/80 dark:text-blue-200 text-xs">
+              {consentFormData.principalInvestigator && (
+                <p>
+                  <span className="font-medium">Principal Investigator:</span>{" "}
+                  {consentFormData.principalInvestigator}
+                </p>
+              )}
+              {consentFormData.institution && (
+                <p>
+                  <span className="font-medium">Institution:</span>{" "}
+                  {consentFormData.institution}
+                </p>
+              )}
+              {consentFormData.faculty && (
+                <p>
+                  <span className="font-medium">Faculty/Department:</span>{" "}
+                  {consentFormData.faculty}
+                </p>
+              )}
+              {consentFormData.irbProtocol && (
+                <p>
+                  <span className="font-medium">IRB Protocol:</span>{" "}
+                  {consentFormData.irbProtocol}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Contact Information Section - New section for email and phone */}
+        {(consentFormData.email || consentFormData.phone) && (
+          <div className="border-l-4 border-green-500 pl-4 bg-green-50 dark:bg-green-900/20 p-4 rounded-r-lg">
+            <h3 className="font-semibold text-green-700 dark:text-green-300 mb-2">
+              CONTACT INFORMATION
+            </h3>
+            <div className="space-y-1 text-green-600 dark:text-green-200 text-xs">
+              {consentFormData.email && (
+                <p>
+                  <span className="font-medium">Email:</span>{" "}
+                  {consentFormData.email}
+                </p>
+              )}
+              {consentFormData.phone && (
+                <p>
+                  <span className="font-medium">Phone:</span>{" "}
+                  {consentFormData.phone}
+                </p>
+              )}
+            </div>
           </div>
         )}
 

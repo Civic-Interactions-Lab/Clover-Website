@@ -335,11 +335,12 @@ const CreateEditConsentView = () => {
   const dbFormToFrontend = (dbForm: any): ConsentForm => ({
     id: dbForm.id,
     title: dbForm.title,
-    subtitle: dbForm.subtitle,
-    studyTitle: dbForm.study_title,
-    researchLead: dbForm.research_lead,
+    principalInvestigator: dbForm.principal_investigator,
     institution: dbForm.institution,
-    irbNumber: dbForm.irb_number,
+    irbProtocol: dbForm.irb_protocol,
+    email: dbForm.email,
+    phone: dbForm.phone,
+    faculty: dbForm.faculty,
     createdAt: dbForm.created_at,
     updatedAt: dbForm.updated_at,
     blocks: (dbForm.blocks || []).map(dbBlockToFrontend),
@@ -467,9 +468,18 @@ const CreateEditConsentView = () => {
     setConsentForm((prev) => (prev ? { ...prev, [field]: value } : null));
 
     try {
+      // Map camelCase to snake_case for database
+      const fieldMapping: { [key: string]: string } = {
+        studyTitle: "study_title",
+        principalInvestigator: "principal_investigator",
+        irbProtocol: "irb_protocol",
+      };
+
+      const dbField = fieldMapping[field] || field;
+
       const { error } = await supabase
         .from("consent_forms")
-        .update({ [field]: value })
+        .update({ [dbField]: value })
         .eq("id", consentForm.id);
 
       if (error) throw error;
@@ -679,12 +689,12 @@ const CreateEditConsentView = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Side - Editor */}
-          <div className="rounded-lg sticky top-8 border">
+          <div className="rounded-lg lg:sticky lg:top-8 border">
             <div className="px-6 py-4 border-b bg-gray-50 dark:bg-gray-900 rounded-t-lg">
               <h2 className="text-xl font-semibold">Edit View</h2>
             </div>
-            <div className="space-y-6 max-h-screen overflow-y-auto px-4">
-              {/* Form metadata editor */}
+            <div className="space-y-6 lg:max-h-screen lg:overflow-y-auto px-4">
+              {/* Form metadata editor - Updated to match database schema */}
               <div className="border p-6 rounded-lg mt-6">
                 <h2 className="text-xl font-semibold mb-4">Form Details</h2>
                 <div className="space-y-4">
@@ -699,43 +709,23 @@ const CreateEditConsentView = () => {
                       placeholder="Consent form title"
                     />
                   </div>
-                  <div>
-                    <Label className="block text-sm font-medium mb-2">
-                      Subtitle
-                    </Label>
-                    <Input
-                      type="text"
-                      value={consentForm?.subtitle || ""}
-                      onChange={(e) =>
-                        updateFormField("subtitle", e.target.value)
-                      }
-                      placeholder="Consent form subtitle"
-                    />
-                  </div>
-                  {/* Research info fields */}
+
+                  {/* Research info fields - Updated to match actual DB schema */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">
-                        Study Title
-                      </label>
-                      <Input
-                        type="text"
-                        value={consentForm?.studyTitle || ""}
-                        onChange={(e) =>
-                          updateFormField("study_title", e.target.value)
-                        }
-                      />
-                    </div>
                     <div>
                       <Label className="block text-sm font-medium mb-2">
                         Principal Investigator
                       </Label>
                       <Input
                         type="text"
-                        value={consentForm?.researchLead || ""}
+                        value={consentForm?.principalInvestigator || ""}
                         onChange={(e) =>
-                          updateFormField("research_lead", e.target.value)
+                          updateFormField(
+                            "principalInvestigator",
+                            e.target.value
+                          )
                         }
+                        placeholder="Principal Investigator name"
                       />
                     </div>
                     <div>
@@ -748,6 +738,7 @@ const CreateEditConsentView = () => {
                         onChange={(e) =>
                           updateFormField("institution", e.target.value)
                         }
+                        placeholder="Institution name"
                       />
                     </div>
                     <div>
@@ -756,10 +747,50 @@ const CreateEditConsentView = () => {
                       </Label>
                       <Input
                         type="text"
-                        value={consentForm?.irbNumber || ""}
+                        value={consentForm?.irbProtocol || ""}
                         onChange={(e) =>
-                          updateFormField("irb_number", e.target.value)
+                          updateFormField("irbProtocol", e.target.value)
                         }
+                        placeholder="IRB Protocol number"
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Faculty
+                      </Label>
+                      <Input
+                        type="text"
+                        value={consentForm?.faculty || ""}
+                        onChange={(e) =>
+                          updateFormField("faculty", e.target.value)
+                        }
+                        placeholder="Faculty/Department"
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Email
+                      </Label>
+                      <Input
+                        type="email"
+                        value={consentForm?.email || ""}
+                        onChange={(e) =>
+                          updateFormField("email", e.target.value)
+                        }
+                        placeholder="Contact email"
+                      />
+                    </div>
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Phone
+                      </Label>
+                      <Input
+                        type="tel"
+                        value={consentForm?.phone || ""}
+                        onChange={(e) =>
+                          updateFormField("phone", e.target.value)
+                        }
+                        placeholder="Contact phone number"
                       />
                     </div>
                   </div>
@@ -841,11 +872,11 @@ const CreateEditConsentView = () => {
           </div>
 
           {/* Right Side - Preview */}
-          <div className="border rounded-lg sticky top-8">
+          <div className="border rounded-lg lg:sticky lg:top-8">
             <div className="px-6 py-4 border-b bg-gray-50 dark:bg-gray-900">
               <h2 className="text-xl font-semibold">Live Preview</h2>
             </div>
-            <div className="p-6 max-h-screen overflow-y-auto">
+            <div className="p-6 lg:max-h-screen lg:overflow-y-auto">
               {previewData ? (
                 <ConsentFormPreview consentFormData={previewData} />
               ) : (

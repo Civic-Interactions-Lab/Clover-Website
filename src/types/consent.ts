@@ -11,12 +11,13 @@ export interface ConsentFormBlock {
 export interface ConsentForm {
   id: number;
   title: string;
-  subtitle: string;
-  studyTitle: string;
-  researchLead: string;
+  principalInvestigator: string;
   institution: string;
-  irbNumber: string;
-  blocks: ConsentFormBlock[];
+  irbProtocol: string;
+  email?: string;
+  phone?: string;
+  faculty?: string;
   createdAt: string;
   updatedAt: string;
+  blocks: ConsentFormBlock[];
 }
