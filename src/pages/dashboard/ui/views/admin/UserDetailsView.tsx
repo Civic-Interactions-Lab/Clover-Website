@@ -43,6 +43,7 @@ import { getUserData } from "@/api/user";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useUser } from "@/context/UserContext";
+import TypingCharts from "../../components/TypingCharts";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -516,6 +517,11 @@ const UserDetailsView = () => {
             <NoData role="admin" userName={displayUser?.firstName} />
           </Card>
         )}
+
+        <TypingCharts
+          userId={displayUser?.id as string}
+          mode={displayUser?.settings?.mode as UserMode}
+        />
       </div>
 
       <Footer />

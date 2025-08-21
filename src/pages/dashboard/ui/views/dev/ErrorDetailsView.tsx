@@ -24,11 +24,11 @@ import {
   CalendarClock,
   CheckCheck,
 } from "lucide-react";
-import { getErrorById } from "@/api/stats";
 import { useResolveError } from "@/pages/dashboard/hooks/useErrors";
 import { Label } from "@/components/ui/label";
 import { formatActivityTimestamp } from "@/utils/timeConverter";
 import { ErrorLog } from "@/types/error";
+import { getErrorById } from "@/api/errors";
 
 interface ExpandableSectionProps {
   title: string;
