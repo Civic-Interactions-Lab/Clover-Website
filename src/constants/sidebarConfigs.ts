@@ -121,6 +121,7 @@ export const sidebarItems: SideBarItem[] = [
     name: "Class Statistics",
     title: "Student Performance Analytics",
     subheading: "Teaching",
+    description: "Track and analyze student performance and progress.",
     roles: INSTRUCTOR,
     dashboardView: InstructorStatsView,
   },

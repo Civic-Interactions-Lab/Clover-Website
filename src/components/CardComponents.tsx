@@ -49,7 +49,9 @@ const InfoCardItem = ({ value, label, className }: InfoCardProps) => {
     <div
       className={`flex flex-col justify-center items-center p-3 bg-muted rounded-lg ${className || ""}`}
     >
-      <div className="text-xl font-bold text-primary text-center">{value}</div>
+      <div className={`font-bold text-primary text-center text-xl`}>
+        {value}
+      </div>
       <div className="text-sm text-muted-foreground text-center">{label}</div>
     </div>
   );

@@ -1,7 +1,8 @@
+import { UserRole } from "@/types/user";
 import CreateNewClassButton from "../pages/classes/ui/components/CreateNewClassButton";
 
 interface NoDataProps {
-  role?: "student" | "instructor" | "admin";
+  role?: UserRole;
   userName?: string; // For displaying specific user's name when admin is viewing
 }
 
@@ -9,7 +10,7 @@ const NoData = ({ role, userName }: NoDataProps) => {
   return (
     <div className="flex flex-1 justify-center py-24">
       <div className="text-center card">
-        {role === "student" ? (
+        {role === UserRole.STUDENT ? (
           <>
             <h2 className="text-lg font-semibold text mb-4">
               No activity found
@@ -27,7 +28,7 @@ const NoData = ({ role, userName }: NoDataProps) => {
               Download CLOVER
             </a>
           </>
-        ) : role === "admin" ? (
+        ) : role === UserRole.ADMIN ? (
           <>
             <h2 className="text-lg font-semibold text mb-4">
               No activity found

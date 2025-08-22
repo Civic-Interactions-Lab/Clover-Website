@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { UserMode } from "@/types/user";
 import { useEffect, useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
-import { Clock } from "lucide-react";
 import StatCard from "@/components/StatCard";
 
 interface TypingChartsProps {
@@ -406,13 +405,14 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
 
   const typingRate = typingData?.typingRate || 0;
   const chartData = getChartData();
-  const acceptanceRate = typingData
-    ? (
-        (typingData.totalAccepted /
-          (typingData.totalAccepted + typingData.totalTyped)) *
-        100
-      ).toFixed(1)
-    : 0;
+  const acceptanceRate = (() => {
+    if (!typingData) return "0.0";
+
+    const total = typingData.totalAccepted + typingData.totalTyped;
+    if (total === 0) return "0.0";
+
+    return ((typingData.totalAccepted / total) * 100).toFixed(1);
+  })();
 
   const renderChart = () => {
     if (chartData.labels.length === 0) {
@@ -428,33 +428,6 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-6">
-        <h1 className="text-2xl font-bold">Typing Analytics</h1>
-
-        <div className="flex items-center gap-4">
-          <CustomSelect
-            value={selectedIntervalType}
-            onValueChange={(value) =>
-              setSelectedIntervalType(value as IntervalType)
-            }
-            options={intervalTypeOptions.map((opt) => ({
-              value: opt.value,
-              label: opt.label,
-            }))}
-            placeholder="Interval Type"
-            className="w-24"
-          />
-          <CustomSelect
-            value={selectedCount.toString()}
-            onValueChange={(value) => setSelectedCount(parseInt(value))}
-            options={getCountOptions()}
-            placeholder="Count"
-            className="w-16"
-          />
-        </div>
-      </div>
-
       {/* Enhanced Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
@@ -473,7 +446,7 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
         />
         <StatCard
           title="Typing Rate"
-          value={typingRate.toFixed(1)}
+          value={`${typingRate.toFixed(1)}%`}
           subtitle="chars per minute"
           tooltipContent="Average typing speed in characters per minute"
           textSize="text-sm"
@@ -491,20 +464,44 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Distribution Chart */}
         <Card className="p-6 col-span-1">
-          <CustomTooltip
-            trigger={
-              <h2 className="text-lg font-semibold text-primary mb-4">
-                Typing vs AI Accepting
-              </h2>
-            }
-            side="top"
-            align="start"
-          >
-            <p className="text-sm">
-              Shows how much the user types vs how much they accept from AI
-              suggestions in {mode} mode.
-            </p>
-          </CustomTooltip>
+          <div className="flex items-center justify-between mb-6">
+            <CustomTooltip
+              trigger={
+                <h2 className="text-lg font-semibold text-primary">
+                  Typing vs AI Accepting
+                </h2>
+              }
+              side="top"
+              align="start"
+            >
+              <p className="text-sm">
+                Shows how much the user types vs how much they accept from AI
+                suggestions in {mode} mode.
+              </p>
+            </CustomTooltip>
+
+            <div className="flex items-center gap-4">
+              <CustomSelect
+                value={selectedIntervalType}
+                onValueChange={(value) =>
+                  setSelectedIntervalType(value as IntervalType)
+                }
+                options={intervalTypeOptions.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+                placeholder="Interval Type"
+                className="w-24"
+              />
+              <CustomSelect
+                value={selectedCount.toString()}
+                onValueChange={(value) => setSelectedCount(parseInt(value))}
+                options={getCountOptions()}
+                placeholder="Count"
+                className="w-16"
+              />
+            </div>
+          </div>
 
           <div className="relative w-full h-80">
             {pieData && typingData?.totalTyped ? (

@@ -6,7 +6,7 @@ const ClassesAdministrationView = () => {
     <Card className="p-6 mt-8">
       <div className="flex items-center mb-2 gap-3">
         <h2 className="text-md font-semibold text-primary">
-          Insights About Users
+          Insights About Classes
         </h2>
       </div>
       <ClassesDataTable />
