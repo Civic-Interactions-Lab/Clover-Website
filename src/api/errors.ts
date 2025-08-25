@@ -31,6 +31,8 @@ export async function getAllErrors(params: GetErrorsParams = {}): Promise<{
     const queryString = queryParams.toString();
     const url = `${ERROR_ENDPOINT}/${queryString ? `?${queryString}` : ""}`;
 
+    console.log("Fetching errors with URL:", url);
+
     const response = await fetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
@@ -52,6 +54,8 @@ export async function getAllErrors(params: GetErrorsParams = {}): Promise<{
 
     // Transform snake_case response to camelCase
     const transformedResponse = toCamelCase(data);
+
+    console.log("Number of errors:", transformedResponse.errors.length);
 
     return { data: transformedResponse };
   } catch (err) {

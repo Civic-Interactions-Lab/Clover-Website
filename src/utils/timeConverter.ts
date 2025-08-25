@@ -45,23 +45,31 @@ export const formatActivityTimestamp = (
   });
 };
 
-export const formatLastActivityTime = (timestamp: string | null): string => {
+export const formatLastActivityTime = (
+  timestamp: string | null,
+  isOnline: boolean = true
+): string => {
   if (!timestamp) return "No activity";
 
   const now = new Date();
   const activityTime = new Date(timestamp);
   const diffInMs = now.getTime() - activityTime.getTime();
+  const diffInSeconds = Math.floor(diffInMs / 1000);
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
   if (diffInMinutes < 1) {
-    return "Online";
+    if (isOnline) {
+      return "Online";
+    } else {
+      return `${diffInSeconds} sec${diffInSeconds !== 1 ? "s" : ""} ago`;
+    }
   } else if (diffInMinutes < 60) {
-    return `${diffInMinutes} min${diffInMinutes > 1 ? "s" : ""} ago`;
+    return `${diffInMinutes} min${diffInMinutes !== 1 ? "s" : ""} ago`;
   } else if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours > 1 ? "s" : ""} ago`;
+    return `${diffInHours} hour${diffInHours !== 1 ? "s" : ""} ago`;
   } else {
-    return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
+    return `${diffInDays} day${diffInDays !== 1 ? "s" : ""} ago`;
   }
 };

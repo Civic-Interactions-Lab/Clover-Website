@@ -13,7 +13,7 @@ import { toast } from "sonner";
  * It allows users to log in using email and password or GitHub OAuth.
  * @returns LoginForm component for user authentication.
  */
-export const LoginForm: React.FC = () => {
+export const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

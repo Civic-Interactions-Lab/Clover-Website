@@ -10,7 +10,7 @@ import NavBar from "../components/NavBar";
  *
  */
 
-export const Landing: React.FC = () => {
+export const Landing = () => {
   return (
     <div className="flex-grow flex flex-col items-center justify-center width-container mx-auto px-8">
       {/* Hero Section */}

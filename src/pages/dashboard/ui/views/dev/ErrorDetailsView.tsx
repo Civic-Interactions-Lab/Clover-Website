@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { useResolveError } from "@/pages/dashboard/hooks/useErrors";
 import { Label } from "@/components/ui/label";
-import { formatActivityTimestamp } from "@/utils/timeConverter";
+import { formatLastActivityTime } from "@/utils/timeConverter";
 import { ErrorLog } from "@/types/error";
 import { getErrorById } from "@/api/errors";
 
@@ -327,7 +327,7 @@ const ErrorDetailsView = ({ errorId, onClose }: ErrorDetailsViewProps) => {
             <CardDescription className="mt-2 text-muted-foreground flex items-center gap-4">
               <span className="text-sm flex items-center gap-2">
                 <CalendarClock className="size-4" />
-                {formatActivityTimestamp(selectedError.createdAt, true)}
+                {formatLastActivityTime(selectedError.createdAt, false)}
               </span>
               <Badge
                 variant={
@@ -438,7 +438,7 @@ const ErrorDetailsView = ({ errorId, onClose }: ErrorDetailsViewProps) => {
                 Created At
               </label>
               <p className="text-sm bg-muted/50 px-3 py-2 rounded">
-                {formatActivityTimestamp(selectedError.createdAt)}
+                {formatLastActivityTime(selectedError.createdAt, false)}
               </p>
             </div>
           </div>

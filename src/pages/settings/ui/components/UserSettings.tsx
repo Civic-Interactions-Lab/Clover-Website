@@ -25,7 +25,7 @@ type UserSettingsProps = {
   user: User | User[] | null;
 };
 
-export const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
+export const UserSettings = ({ user }: UserSettingsProps) => {
   const isMulti = Array.isArray(user);
   const initialSettings: UserSettingsType = useMemo(() => {
     if (!user) return defaultSettings;
