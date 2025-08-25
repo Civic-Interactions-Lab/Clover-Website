@@ -1,6 +1,5 @@
 import React from "react";
 import { CLOVER, Paragraph, Title } from "../components/ui/text";
-import NavBar from "../components/NavBar";
 
 /**
  * About page component.

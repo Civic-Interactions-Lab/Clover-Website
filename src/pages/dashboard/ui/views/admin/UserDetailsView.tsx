@@ -279,7 +279,11 @@ const UserDetailsView = () => {
                     )}
                     icon={Calendar}
                   />
-                  <InfoField label="ID" value={displayUser!.id} icon={Info} />
+                  <InfoField
+                    label="PID"
+                    value={displayUser?.pid as string}
+                    icon={Info}
+                  />
                 </CardContent>
               </Card>
 
@@ -306,6 +310,18 @@ const UserDetailsView = () => {
                       checked={settings?.enableQuiz ?? true}
                       onCheckedChange={(checked) =>
                         updateSetting("enableQuiz", checked)
+                      }
+                      disabled={!editMode}
+                    />
+                  </div>
+
+                  {/* Enable Dashboard */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Enable Dashboard</p>
+                    <Switch
+                      checked={settings?.enableDashboard ?? true}
+                      onCheckedChange={(checked) =>
+                        updateSetting("enableDashboard", checked)
                       }
                       disabled={!editMode}
                     />

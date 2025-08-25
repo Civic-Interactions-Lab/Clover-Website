@@ -8,7 +8,6 @@ import {
 import { Button } from "../components/ui/button";
 import { Link } from "react-router-dom";
 import { CLOVER, Header, Paragraph, Title } from "../components/ui/text";
-import NavBar from "../components/NavBar";
 import {
   ArrowRight,
   Check,

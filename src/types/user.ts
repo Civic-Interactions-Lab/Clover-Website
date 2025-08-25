@@ -52,6 +52,7 @@ export type UserSettings = {
   bugPercentage: number;
   showNotifications: boolean;
   mode: UserMode;
+  enableDashboard: boolean;
 };
 
 export interface ProgressData {

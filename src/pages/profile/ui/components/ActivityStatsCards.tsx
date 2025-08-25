@@ -36,29 +36,31 @@ const ActivityStatsCards = ({ user }: ActivityStatsCardsProps) => {
   return (
     <>
       {/* Activity Statistics */}
-      <Card className="py-3 bg-muted/40">
-        <InfoCardTitle title="Activity Insights" icon={Activity} />
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <InfoCardItem
-              label="Total Interactions"
-              value={progressData.totalInteractions || 0}
-            />
-            <InfoCardItem
-              label="Correct Answers"
-              value={progressData.correctSuggestions || 0}
-            />
-            <InfoCardItem
-              label="Accuracy Rate"
-              value={`${(progressData.accuracyPercentage || 0).toFixed(1)}%`}
-            />
-            <InfoCardItem
-              label="Last Activity"
-              value={formatLastActivityTime(lastActivity)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {user.settings.enableDashboard && (
+        <Card className="py-3 bg-muted/40">
+          <InfoCardTitle title="Activity Insights" icon={Activity} />
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <InfoCardItem
+                label="Total Interactions"
+                value={progressData.totalInteractions || 0}
+              />
+              <InfoCardItem
+                label="Correct Answers"
+                value={progressData.correctSuggestions || 0}
+              />
+              <InfoCardItem
+                label="Accuracy Rate"
+                value={`${(progressData.accuracyPercentage || 0).toFixed(1)}%`}
+              />
+              <InfoCardItem
+                label="Last Activity"
+                value={formatLastActivityTime(lastActivity)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Account Stats */}
       <Card className="py-3 bg-muted/40">

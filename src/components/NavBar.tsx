@@ -46,11 +46,15 @@ export const NavBar = () => {
     navigate("/");
   };
 
+  console.log("User Data:", userData?.settings);
+
   const navLinks = [
     { to: "/home", label: "Home" },
     ...(isAuthenticated
       ? [
-          { to: "/dashboard", label: "Dashboard" },
+          ...(userData?.settings?.enableDashboard !== false
+            ? [{ to: "/dashboard", label: "Dashboard" }]
+            : []),
           ...(userData?.role === UserRole.STUDENT
             ? [{ to: "/quiz", label: "Review" }]
             : []),
@@ -59,6 +63,8 @@ export const NavBar = () => {
     { to: "/download", label: "Download" },
     { to: "/about", label: "About" },
   ];
+
+  if (!userData) return null;
 
   return (
     <nav
