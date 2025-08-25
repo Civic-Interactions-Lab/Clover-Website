@@ -41,7 +41,7 @@ interface ErrorChartsProps {
   className?: string;
 }
 
-const ErrorCharts: React.FC<ErrorChartsProps> = ({ className }) => {
+const ErrorCharts = ({ className }: ErrorChartsProps) => {
   const [interval, setInterval] = useState<TimeInterval>(TimeInterval.DAY);
   const [textColor, setTextColor] = useState("#000000");
   const [gridColor, setGridColor] = useState("rgba(255,255,255,0.1)");

@@ -30,7 +30,7 @@ import { useNavigate } from "react-router-dom";
  * It allows the user to reset their password.
  * @returns PasswordReset component.
  */
-export const PasswordResetForm: React.FC = () => {
+export const PasswordResetForm = () => {
   const [email, setEmail] = useState("");
   const [submit, setSubmit] = useState("");
   const [error, setError] = useState("");
@@ -150,7 +150,7 @@ export const PasswordResetForm: React.FC = () => {
 
 export default PasswordResetForm;
 
-export const PasswordResetCallback: React.FC = () => {
+export const PasswordResetCallback = () => {
   const navigate = useNavigate();
 
   const [password, setPassword] = useState("");
@@ -398,7 +398,7 @@ interface LogoIconProps {
   icon: React.ReactNode;
 }
 
-const LogoIcon: React.FC<LogoIconProps> = ({ icon }) => (
+const LogoIcon = ({ icon }: LogoIconProps) => (
   <div className="w-16 h-16 bg-gradient-to-br from-[#50B498] to-[#468585] rounded-2xl flex items-center justify-center mx-auto shadow-lg">
     {icon}
   </div>
@@ -409,10 +409,7 @@ interface PasswordToggleProps {
   onToggle: () => void;
 }
 
-const PasswordToggle: React.FC<PasswordToggleProps> = ({
-  showPassword,
-  onToggle,
-}) => (
+const PasswordToggle = ({ showPassword, onToggle }: PasswordToggleProps) => (
   <Button
     type="button"
     variant="ghost"
@@ -431,12 +428,12 @@ interface SubmitButtonProps {
   disabled?: boolean;
 }
 
-const SubmitButton: React.FC<SubmitButtonProps> = ({
+const SubmitButton = ({
   isLoading,
   loadingText,
   children,
   disabled = false,
-}) => (
+}: SubmitButtonProps) => (
   <Button
     type="submit"
     disabled={isLoading || disabled}

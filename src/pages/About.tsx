@@ -1,13 +1,12 @@
 import React from "react";
 import { CLOVER, Paragraph, Title } from "../components/ui/text";
-import NavBar from "../components/NavBar";
 
 /**
  * About page component.
  * This component displays information about CLOVER and embeds the Docusaurus documentation site.
  * @returns {JSX.Element} The About page component.
  */
-export const About: React.FC = () => {
+export const About = () => {
   return (
     <div className="flex flex-col items-center justify-center width-container min-h-screen">
       <section className="w-full flex flex-col flex-grow items-center justify-center text-center px-6 pt-24 pb-12">

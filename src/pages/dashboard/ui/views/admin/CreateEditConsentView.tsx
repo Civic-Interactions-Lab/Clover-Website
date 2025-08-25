@@ -47,13 +47,13 @@ interface SortableBlockItemProps {
   deleteBlock: (blockId: string) => void;
 }
 
-const SortableBlockItem: React.FC<SortableBlockItemProps> = ({
+const SortableBlockItem = ({
   block,
   editingBlock,
   setEditingBlock,
   updateBlock,
   deleteBlock,
-}) => {
+}: SortableBlockItemProps) => {
   const {
     attributes,
     listeners,

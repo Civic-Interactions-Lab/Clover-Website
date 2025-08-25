@@ -1,4 +1,3 @@
-import NavBar from "@/components/NavBar";
 import SignUpForm from "@/pages/auth/ui/components/SignUpForm";
 
 /**

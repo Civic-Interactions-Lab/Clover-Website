@@ -8,11 +8,7 @@ import {
   UserStatus,
 } from "@/types/user";
 import { saveUserSettings, updateUser } from "@/api/user";
-import {
-  InfoCardItem,
-  InfoCardTitle,
-  InfoField,
-} from "@/components/CardComponents";
+import { InfoCardTitle, InfoField } from "@/components/CardComponents";
 import CustomSelect from "@/components/CustomSelect";
 import RoleBadge from "@/components/RoleBadge";
 import StatusBadge from "@/components/StatusBadge";
@@ -20,29 +16,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import UserAvatar from "@/components/UserAvatar";
-import {
-  Calendar,
-  Edit,
-  Info,
-  Mail,
-  PersonStanding,
-  Settings,
-  User2,
-  X,
-} from "lucide-react";
-import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
-import { CustomTooltip } from "@/components/CustomTooltip";
+import { Calendar, Edit, Info, Mail, Settings, User2, X } from "lucide-react";
 import Loading from "@/components/Loading";
-import NoData from "@/components/NoData";
-import PaginatedTable from "@/components/PaginatedTable";
-import SuggestionTable from "@/pages/dashboard/ui/components/SuggestionTable";
-import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 import { getUserData } from "@/api/user";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useUser } from "@/context/UserContext";
+import TypingCharts from "../../components/TypingCharts";
+import ActivityStatsSection from "../../components/ActivityStatsSection";
+import ClassesDropdownMenu from "../../components/ClassesDropdownMenu";
+import { useUserClasses } from "@/hooks/useUserClasses";
+import ActivityStatsCards from "@/pages/profile/ui/components/ActivityStatsCards";
+import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -58,7 +44,6 @@ const UserDetailsView = () => {
   );
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(false);
 
-  // New state for user role and status editing
   const [editingUser, setEditingUser] = useState<{
     role: UserRole;
     status: UserStatus;
@@ -68,7 +53,6 @@ const UserDetailsView = () => {
     status: UserStatus;
   } | null>(null);
 
-  // Fetch user data
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
@@ -90,17 +74,6 @@ const UserDetailsView = () => {
     fetchUser();
   }, [userId]);
 
-  const {
-    userActivity,
-    loading: userActivityLoading,
-    progressData,
-  } = useUserActivity(
-    displayUser?.id,
-    displayUser?.settings?.mode,
-    null,
-    isRealtimeEnabled
-  );
-
   useEffect(() => {
     if (displayUser?.settings) {
       setSettings(displayUser.settings);
@@ -116,6 +89,24 @@ const UserDetailsView = () => {
       setOriginalUser(userBasicInfo);
     }
   }, [displayUser]);
+
+  const {
+    allClassOptions,
+    selectedClassId,
+    handleClassSelect,
+    loading: userClassLoading,
+  } = useUserClasses(userData?.id, "all");
+
+  const {
+    userActivity,
+    loading: userActivityLoading,
+    progressData,
+  } = useUserActivity(
+    displayUser?.id,
+    displayUser?.settings?.mode,
+    selectedClassId,
+    isRealtimeEnabled
+  );
 
   const updateSetting = (key: keyof UserSettings, value: any) => {
     setSettings((prev) => ({ ...prev!, [key]: value }));
@@ -185,20 +176,6 @@ const UserDetailsView = () => {
     setEditingUser(originalUser);
   };
 
-  // Filter and sort log items
-  const filteredLogItems = userActivity.filter(
-    (logItem) =>
-      ACCEPT_EVENTS.includes(logItem.event) ||
-      REJECT_EVENTS.includes(logItem.event)
-  );
-
-  const sortedLogItems = filteredLogItems.sort(
-    (a, b) =>
-      new Date(b.createdAt || b.createdAt).getTime() -
-      new Date(a.createdAt || a.createdAt).getTime()
-  );
-
-  const loading = userActivityLoading || userLoading;
   const canEdit =
     userData?.role === UserRole.ADMIN || userData?.role === UserRole.DEV;
 
@@ -230,7 +207,7 @@ const UserDetailsView = () => {
     );
   }
 
-  if (loading) {
+  if (userLoading || userClassLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loading size="lg" text="Loading user data..." />
@@ -302,7 +279,11 @@ const UserDetailsView = () => {
                     )}
                     icon={Calendar}
                   />
-                  <InfoField label="ID" value={displayUser!.id} icon={Info} />
+                  <InfoField
+                    label="PID"
+                    value={displayUser?.pid as string}
+                    icon={Info}
+                  />
                 </CardContent>
               </Card>
 
@@ -329,6 +310,18 @@ const UserDetailsView = () => {
                       checked={settings?.enableQuiz ?? true}
                       onCheckedChange={(checked) =>
                         updateSetting("enableQuiz", checked)
+                      }
+                      disabled={!editMode}
+                    />
+                  </div>
+
+                  {/* Enable Dashboard */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Enable Dashboard</p>
+                    <Switch
+                      checked={settings?.enableDashboard ?? true}
+                      onCheckedChange={(checked) =>
+                        updateSetting("enableDashboard", checked)
                       }
                       disabled={!editMode}
                     />
@@ -413,7 +406,6 @@ const UserDetailsView = () => {
                 </CardContent>
               </Card>
             </div>
-
             {/* Save/Cancel Buttons - Now spans full width */}
             {editMode && (
               <div className="flex gap-3 items-center justify-center pt-4">
@@ -435,87 +427,39 @@ const UserDetailsView = () => {
               </div>
             )}
 
-            {/* Account Stats */}
-            <Card className="py-3 bg-muted/40">
-              <InfoCardTitle title="Activity Status" icon={PersonStanding} />
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <InfoCardItem
-                    label="Member Since"
-                    value={new Date(displayUser!.createdAt).toLocaleDateString(
-                      "en-US",
-                      {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }
-                    )}
-                  />
-                  <InfoCardItem
-                    label="Days Active"
-                    value={Math.floor(
-                      (Date.now() -
-                        new Date(displayUser!.createdAt).getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )}
-                  />
-                  <InfoCardItem
-                    label="Account Status"
-                    value={editingUser?.status || displayUser!.status}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <ActivityStatsCards user={displayUser} />
           </CardContent>
         </Card>
 
-        {/* User Activity Logs Section */}
-        {progressData.totalInteractions > 0 ? (
-          <Card className="p-6">
-            <div className="flex items-center mb-3 gap-3 justify-between">
-              <CustomTooltip
-                trigger={
-                  <h2 className="text-lg font-semibold text-[#50B498]">
-                    User Activity Table
-                  </h2>
-                }
-                children={
-                  <div className="space-y-2">
-                    <p className="text-sm">
-                      This table shows recent interactions with code
-                      suggestions.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Click on any row to view detailed suggestion information.
-                    </p>
-                  </div>
-                }
-              />
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="realtime-switch">Realtime Updates</Label>
-                <Switch
-                  id="realtime-switch"
-                  checked={isRealtimeEnabled}
-                  onCheckedChange={setIsRealtimeEnabled}
-                />
-              </div>
-            </div>
-            <PaginatedTable
-              data={sortedLogItems}
-              renderTable={(items, startIndex) => (
-                <SuggestionTable
-                  logItems={items}
-                  startIndex={startIndex}
-                  mode={displayUser?.settings?.mode as UserMode}
-                />
-              )}
+        <div className="flex w-full justify-between gap-6 items-center">
+          <p className="text-xl font-semibold hidden md:block">
+            Student Activity Analytiscs
+          </p>
+          <div className="w-full md:w-80">
+            <ClassesDropdownMenu
+              classes={allClassOptions}
+              onClassSelect={handleClassSelect}
+              selectedId={selectedClassId}
             />
-          </Card>
-        ) : (
-          <Card className="p-6">
-            <NoData role="admin" userName={displayUser?.firstName} />
-          </Card>
-        )}
+          </div>
+        </div>
+
+        <ActivityStatsSection
+          userActivity={userActivity}
+          progressData={progressData}
+          loading={userActivityLoading}
+          userMode={displayUser?.settings?.mode}
+          userName={displayUser?.firstName}
+          role={displayUser?.role}
+          showRealtimeToggle={true}
+          showLearningProgress={true}
+          onRealtimeToggle={setIsRealtimeEnabled}
+        />
+
+        <TypingCharts
+          userId={displayUser?.id as string}
+          mode={displayUser?.settings?.mode as UserMode}
+        />
       </div>
 
       <Footer />

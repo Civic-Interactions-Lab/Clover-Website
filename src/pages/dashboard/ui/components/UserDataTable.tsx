@@ -126,6 +126,7 @@ const UsersDataTable = () => {
                       showNotifications: true,
                       bugPercentage: 0,
                       enableQuiz: true,
+                      enableDashboard: true,
                     },
                     totalAccepted: 0,
                     totalRejected: 0,

@@ -6,7 +6,7 @@ import { handleAuthRedirect } from "../utils/handleAuth";
  * AuthCallback component handles the authentication callback from Supabase.
  * @returns {JSX.Element} - A React component that handles the authentication callback from Supabase.
  */
-export const AuthCallback: React.FC = () => {
+export const AuthCallback = () => {
   const navigate = useNavigate();
   const called = useRef(false);
 

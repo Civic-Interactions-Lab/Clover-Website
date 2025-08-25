@@ -20,9 +20,7 @@ import {
 } from "./ui/form";
 import { Input } from "./ui/input";
 
-export const ResetPasswordButton: React.FC<{ userId?: string }> = ({
-  userId,
-}) => {
+export const ResetPasswordButton = ({ userId }: { userId?: string }) => {
   const [open, setOpen] = useState(false);
   const form = useForm({
     defaultValues: {

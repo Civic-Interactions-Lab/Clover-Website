@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ChevronUp, ChevronDown, Plus, Minus } from "lucide-react";
 import InstallFromVSIX from "../assets/InstallFromVSIX.gif";
 import { Card } from "../components/ui/card";
-import NavBar from "../components/NavBar";
 
 // List of sections and subsections
 const sections = [

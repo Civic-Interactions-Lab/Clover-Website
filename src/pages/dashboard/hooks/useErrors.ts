@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getAllErrors, resolveError } from "@/api/stats";
 import {
   ErrorLevel,
   ErrorLog,
@@ -8,6 +7,7 @@ import {
   GetErrorsParams,
   SortOrder,
 } from "@/types/error";
+import { getAllErrors, resolveError } from "@/api/errors";
 
 interface UseErrorsOptions {
   page?: number;
