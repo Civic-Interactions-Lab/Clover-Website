@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { useUser } from "@/context/UserContext";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 import { useUserClasses } from "@/hooks/useUserClasses";
-import { UserMode } from "@/types/user";
+import { UserMode, UserRole } from "@/types/user";
 import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -53,7 +53,7 @@ const StudentLogsView = () => {
   }
 
   if (progressData.totalInteractions === 0) {
-    return <NoData role="student" />;
+    return <NoData role={UserRole.STUDENT} />;
   }
 
   return (

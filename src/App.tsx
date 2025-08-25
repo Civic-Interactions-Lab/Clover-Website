@@ -28,6 +28,7 @@ import { ConstructionRoute, EarlyAccessProvider } from "./hooks/useEarlyAccess";
 import { PublicLayout } from "./pages/PublicLayout";
 import UserDetailsView from "./pages/dashboard/ui/views/admin/UserDetailsView";
 import CreateEditConsentView from "./pages/dashboard/ui/views/admin/CreateEditConsentView";
+import SuggestionDetailsView from "./pages/dashboard/ui/views/student/SuggestionDetailsView";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,10 @@ const App = (): JSX.Element => {
                     <Route
                       path="/users/:userId"
                       element={<UserDetailsView />}
+                    />
+                    <Route
+                      path="/suggestion-details"
+                      element={<SuggestionDetailsView />}
                     />
                   </Route>
                   {/* Public Routes */}

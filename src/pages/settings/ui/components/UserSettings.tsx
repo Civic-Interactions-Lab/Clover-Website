@@ -19,6 +19,7 @@ const defaultSettings: UserSettingsType = {
   showNotifications: true,
   enableQuiz: true,
   mode: UserMode.CODE_BLOCK,
+  enableDashboard: false,
 };
 
 type UserSettingsProps = {
@@ -44,6 +45,9 @@ export const UserSettings = ({ user }: UserSettingsProps) => {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle"
   );
+  const [enableDashboard, setEnableDashboard] = useState(
+    initialSettings.enableDashboard
+  );
 
   useEffect(() => {
     setBugPercentage(initialSettings.bugPercentage);
@@ -59,6 +63,7 @@ export const UserSettings = ({ user }: UserSettingsProps) => {
       showNotifications: showNotifications,
       enableQuiz: enableQuiz,
       mode: mode,
+      enableDashboard: enableDashboard,
     };
 
     try {

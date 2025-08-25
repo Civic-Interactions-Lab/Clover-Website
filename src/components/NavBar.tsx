@@ -46,8 +46,6 @@ export const NavBar = () => {
     navigate("/");
   };
 
-  console.log("User Data:", userData?.settings);
-
   const navLinks = [
     { to: "/home", label: "Home" },
     ...(isAuthenticated

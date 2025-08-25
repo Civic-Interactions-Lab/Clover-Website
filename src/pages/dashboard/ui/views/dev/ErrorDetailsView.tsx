@@ -1,11 +1,4 @@
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,12 +16,19 @@ import {
   Hammer,
   CalendarClock,
   CheckCheck,
+  ArrowLeft,
+  Bug,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { useResolveError } from "@/pages/dashboard/hooks/useErrors";
 import { Label } from "@/components/ui/label";
 import { formatLastActivityTime } from "@/utils/timeConverter";
 import { ErrorLog } from "@/types/error";
 import { getErrorById } from "@/api/errors";
+import NavBar from "@/components/NavBar";
+import Footer from "@/components/Footer";
+import Loading from "@/components/Loading";
 
 interface ExpandableSectionProps {
   title: string;
@@ -46,22 +46,27 @@ const ExpandableSection = ({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   return (
-    <div className="space-y-3">
-      <div
-        className="flex items-center gap-2 cursor-pointer hover:bg-muted/10 p-2 rounded-lg transition-colors duration-200"
+    <div className="space-y-4">
+      <button
         onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between w-full p-4 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors group"
       >
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-        )}
-        <div className="text-lg font-semibold flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {icon}
-          {title}
+          <h3 className="text-lg font-semibold text-left">{title}</h3>
         </div>
-      </div>
-      {isExpanded && <div className="ml-6 space-y-4">{children}</div>}
+        {isExpanded ? (
+          <ChevronDown className="w-5 h-5 text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+        ) : (
+          <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/30 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-6">{children}</div>
+        </div>
+      )}
     </div>
   );
 };
@@ -84,11 +89,28 @@ const ContextDisplay = ({ data, title = "Context" }: ContextDisplayProps) => {
     setExpandedKeys(newExpanded);
   };
 
+  const isValidObject = (value: any): boolean => {
+    return (
+      value !== null &&
+      value !== undefined &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      !(value instanceof Date) &&
+      !(value instanceof RegExp)
+    );
+  };
+
   const renderValue = (value: any, key: string = ""): React.ReactNode => {
+    // Handle null and undefined
     if (value === null || value === undefined) {
-      return <span className="text-muted-foreground italic">null</span>;
+      return (
+        <span className="text-gray-500 dark:text-gray-400 italic">
+          {value === null ? "null" : "undefined"}
+        </span>
+      );
     }
 
+    // Handle boolean values
     if (typeof value === "boolean") {
       return (
         <Badge variant={value ? "default" : "secondary"} className="text-xs">
@@ -97,78 +119,132 @@ const ContextDisplay = ({ data, title = "Context" }: ContextDisplayProps) => {
       );
     }
 
-    if (typeof value === "object" && !Array.isArray(value)) {
-      const isExpanded = expandedKeys.has(key);
+    // Handle numbers
+    if (typeof value === "number") {
       return (
-        <div className="space-y-2">
-          <div
-            className="flex items-center gap-2 cursor-pointer hover:bg-muted/10 p-1 rounded transition-colors"
-            onClick={() => toggleKey(key)}
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground" />
-            )}
-            <span className="text-sm font-semibold text-muted-foreground">
-              {Object.keys(value).length} properties
-            </span>
-          </div>
-          {isExpanded && (
-            <div className="space-y-2 ml-4 pl-4">
-              {Object.entries(value).map(([nestedKey, nestedValue]) => (
-                <div key={nestedKey} className="flex items-start gap-4">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 py-1 bg-muted/50 rounded whitespace-nowrap min-w-fit">
-                    {nestedKey}:
-                  </span>
-                  <div className="flex-1">
-                    {renderValue(nestedValue, `${key}.${nestedKey}`)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <span className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+          {value.toString()}
+        </span>
       );
     }
 
+    // Handle Date objects
+    if (value instanceof Date) {
+      return (
+        <span className="text-sm bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+          {value.toISOString()}
+        </span>
+      );
+    }
+
+    // Handle functions
+    if (typeof value === "function") {
+      return (
+        <span className="text-sm bg-purple-100 dark:bg-purple-900/30 px-2 py-1 rounded italic">
+          [Function: {value.name || "anonymous"}]
+        </span>
+      );
+    }
+
+    // Handle arrays
     if (Array.isArray(value)) {
       const isExpanded = expandedKeys.has(key);
       return (
         <div className="space-y-2">
           <div
-            className="flex items-center gap-2 cursor-pointer hover:bg-muted/10 p-1 rounded transition-colors"
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors"
             onClick={() => toggleKey(key)}
           >
             {isExpanded ? (
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              <ChevronDown className="w-3 h-3 text-gray-500" />
             ) : (
-              <ChevronRight className="w-3 h-3 text-muted-foreground" />
+              <ChevronRight className="w-3 h-3 text-gray-500" />
             )}
-            <span className="text-sm font-semibold text-muted-foreground">
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
               Array ({value.length} items)
             </span>
           </div>
           {isExpanded && (
-            <div className="space-y-2 bg-muted/30 rounded-md p-3 ml-4">
-              {value.map((item, index) => (
-                <div key={index} className="flex items-start gap-4">
-                  <span className="text-xs text-muted-foreground font-mono whitespace-nowrap min-w-fit">
-                    [{index}]:
-                  </span>
-                  <div className="flex-1">
-                    {renderValue(item, `${key}[${index}]`)}
+            <div className="space-y-2 bg-gray-100 dark:bg-gray-700 rounded-md p-3 ml-4">
+              {value.length === 0 ? (
+                <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                  Empty array
+                </span>
+              ) : (
+                value.map((item, index) => (
+                  <div key={index} className="flex items-start gap-4">
+                    <span className="text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-nowrap min-w-fit">
+                      [{index}]:
+                    </span>
+                    <div className="flex-1">
+                      {renderValue(item, `${key}[${index}]`)}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </div>
       );
     }
 
-    // String/primitive values
+    // Handle objects (including nested objects)
+    if (isValidObject(value)) {
+      const isExpanded = expandedKeys.has(key);
+      const objectKeys = Object.keys(value);
+
+      return (
+        <div className="space-y-2">
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors"
+            onClick={() => toggleKey(key)}
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-3 h-3 text-gray-500" />
+            ) : (
+              <ChevronRight className="w-3 h-3 text-gray-500" />
+            )}
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+              {objectKeys.length} properties
+            </span>
+          </div>
+          {isExpanded && (
+            <div className="space-y-2 ml-4 pl-4 border-l border-gray-200 dark:border-gray-600">
+              {objectKeys.length === 0 ? (
+                <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                  Empty object
+                </span>
+              ) : (
+                objectKeys.map((nestedKey) => (
+                  <div key={nestedKey} className="flex items-start gap-4">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded whitespace-nowrap min-w-fit">
+                      {nestedKey}:
+                    </span>
+                    <div className="flex-1">
+                      {renderValue(value[nestedKey], `${key}.${nestedKey}`)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Handle primitive values (strings, etc.)
     const stringValue = String(value);
+
+    // Handle empty strings
+    if (stringValue === "") {
+      return (
+        <span className="text-gray-500 dark:text-gray-400 italic">
+          Empty string
+        </span>
+      );
+    }
+
+    // Handle long strings or multi-line strings
     if (stringValue.length > 60 || stringValue.includes("\n")) {
       return (
         <div className="bg-slate-900 dark:bg-slate-800 text-green-400 rounded-lg p-3 text-sm font-mono overflow-x-auto">
@@ -177,25 +253,43 @@ const ContextDisplay = ({ data, title = "Context" }: ContextDisplayProps) => {
       );
     }
 
+    // Handle regular strings
     return (
-      <span className="text-sm bg-muted/50 px-2 py-1 rounded">
+      <span className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
         {stringValue}
       </span>
     );
   };
 
-  if (!data || Object.keys(data).length === 0) {
-    return null;
+  if (!data) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800/20 rounded-xl p-6 text-center">
+        <span className="text-gray-500 dark:text-gray-400 italic">
+          No context data available
+        </span>
+      </div>
+    );
+  }
+
+  const dataKeys = Object.keys(data);
+  if (dataKeys.length === 0) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800/20 rounded-xl p-6 text-center">
+        <span className="text-gray-500 dark:text-gray-400 italic">
+          Empty context
+        </span>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-muted/20 rounded-xl p-6 space-y-4">
-      {Object.entries(data).map(([key, value]) => (
+    <div className="bg-gray-50 dark:bg-gray-800/20 rounded-xl p-6 space-y-4">
+      {dataKeys.map((key) => (
         <div key={key} className="flex items-start gap-4">
-          <span className="text-sm font-semibold text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-lg whitespace-nowrap min-w-fit">
+          <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-lg whitespace-nowrap min-w-fit">
             {key}:
           </span>
-          <div className="flex-1">{renderValue(value, key)}</div>
+          <div className="flex-1">{renderValue(data[key], key)}</div>
         </div>
       ))}
     </div>
@@ -263,250 +357,231 @@ const ErrorDetailsView = ({ errorId, onClose }: ErrorDetailsViewProps) => {
     }
   };
 
-  if (error) {
-    return (
-      <Card className="max-w-6xl w-full max-h-[90vh] overflow-y-auto shadow-2xl bg-sidebar">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-              Error Loading Details
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-8">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleGoBack = () => {
+    onClose();
+  };
 
-  if (errorDetailLoading) {
-    return (
-      <Card className="max-w-6xl w-full shadow-2xl bg-sidebar">
-        <CardContent className="p-8">
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-4 border-muted-foreground/20 border-t-muted-foreground"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!selectedError) {
-    return (
-      <Card className="max-w-6xl w-full shadow-2xl bg-sidebar">
-        <CardContent className="p-8">
-          <div className="text-center py-12 text-muted-foreground">
-            <AlertTriangle className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-lg">Error details not found</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const isResolved = selectedError?.resolved;
+  const isCritical =
+    selectedError?.level === "CRITICAL" || selectedError?.level === "ERROR";
 
   return (
-    <Card className="max-w-6xl w-full">
-      {/* Header */}
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              {selectedError.resolved ? (
-                <CheckCheck className="size-6 text-primary" />
-              ) : (
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              )}
-              {selectedError.message}
-            </CardTitle>
+    <>
+      <div className="min-h-screen py-6 px-8">
+        <div className="max-w-7xl mx-auto space-y-12">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                onClick={handleGoBack}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+              <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Error Details
+              </h1>
+            </div>
 
-            <CardDescription className="mt-2 text-muted-foreground flex items-center gap-4">
-              <span className="text-sm flex items-center gap-2">
-                <CalendarClock className="size-4" />
-                {formatLastActivityTime(selectedError.createdAt, false)}
-              </span>
-              <Badge
-                variant={
-                  selectedError.level === "CRITICAL"
-                    ? "destructive"
-                    : selectedError.level === "ERROR"
+            {selectedError && (
+              <div className="flex items-center gap-3">
+                <Badge
+                  variant={isResolved ? "default" : "destructive"}
+                  className="px-3 py-1 text-sm font-medium rounded-2xl"
+                >
+                  {isResolved ? "Resolved" : "Open"}
+                </Badge>
+                <Badge
+                  variant={
+                    selectedError.level === "CRITICAL" ||
+                    selectedError.level === "ERROR"
                       ? "destructive"
                       : selectedError.level === "WARNING"
                         ? "secondary"
                         : "default"
-                }
-                className="text-xs rounded-2xl px-3"
-              >
-                {selectedError.level}
-              </Badge>
-              <Badge
-                variant={selectedError.resolved ? "default" : "destructive"}
-                className="text-xs rounded-2xl px-3"
-              >
-                {selectedError.resolved ? "Resolved" : "Open"}
-              </Badge>
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-
-      {/* Content */}
-      <CardContent className="p-8 pt-0 space-y-8">
-        {/* Basic Info - Always visible */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-muted/50 rounded-lg p-4">
-            <Label className="text-sm font-semibold  items-center text-muted-foreground block mb-2">
-              <Layers2 className="w-4 h-4 inline-block mr-2 mb-1" />
-              Category
-            </Label>
-            <p className="text-sm font-medium">{selectedError.category}</p>
-          </div>
-
-          {selectedError.action && (
-            <div className="bg-muted/50 rounded-lg p-4">
-              <Label className="text-sm font-semibold text-muted-foreground block mb-2">
-                <Hammer className="w-4 h-4 inline-block mr-2 mb-1" />
-                Action
-              </Label>
-              <p className="text-sm">{selectedError.action}</p>
-            </div>
-          )}
-
-          {selectedError.userId && (
-            <div className="bg-muted/50 rounded-lg p-4">
-              <label className="text-sm font-semibold text-muted-foreground flex items-center mb-2">
-                <User className="w-4 h-4 inline-block mr-2 mb-1" />
-                User ID
-              </label>
-              <p className="text-sm font-mono break-all">
-                {selectedError.userId}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Stack Trace - Expandable */}
-        {selectedError.stackTrace && (
-          <ExpandableSection
-            title="Stack Trace"
-            icon={<Code className="w-5 h-5 text-red-600" />}
-            defaultExpanded={false}
-          >
-            <pre className="text-xs bg-slate-900 dark:bg-slate-800 text-green-400 p-4 rounded-xl overflow-x-auto shadow-inner">
-              {selectedError.stackTrace}
-            </pre>
-          </ExpandableSection>
-        )}
-
-        {/* Context - Expandable */}
-        {selectedError.context && (
-          <ExpandableSection
-            title="Context Data"
-            icon={<Code className="w-5 h-5" />}
-            defaultExpanded={false}
-          >
-            <ContextDisplay data={selectedError.context} />
-          </ExpandableSection>
-        )}
-
-        {/* Metadata - Expandable */}
-        <ExpandableSection
-          title="Metadata"
-          icon={<Hash className="w-5 h-5" />}
-          defaultExpanded={true}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {selectedError.errorCode && (
-              <div className="bg-muted/20 rounded-lg p-4">
-                <label className="text-sm font-semibold text-muted-foreground flex items-center gap-2 mb-2">
-                  <Hash className="w-4 h-4" />
-                  Error Code
-                </label>
-                <p className="text-sm font-mono bg-muted/50 px-3 py-2 rounded">
-                  {selectedError.errorCode}
-                </p>
+                  }
+                  className="px-3 py-1 text-sm font-medium rounded-2xl"
+                >
+                  {selectedError.level}
+                </Badge>
               </div>
             )}
-
-            <div className="bg-muted/20 rounded-lg p-4">
-              <label className="text-sm font-semibold text-muted-foreground flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4" />
-                Created At
-              </label>
-              <p className="text-sm bg-muted/50 px-3 py-2 rounded">
-                {formatLastActivityTime(selectedError.createdAt, false)}
-              </p>
-            </div>
           </div>
-        </ExpandableSection>
 
-        {/* System Info - Expandable */}
-        {(selectedError.vscodeVersion ||
-          selectedError.extensionVersion ||
-          selectedError.operatingSystem) && (
-          <ExpandableSection
-            title="System Information"
-            icon={<Monitor className="w-5 h-5 text-muted-foreground" />}
-            defaultExpanded={false}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/20 p-6 rounded-xl">
-              {selectedError.vscodeVersion && (
-                <div className="bg-muted/30 p-3 rounded-lg">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">
-                    VS Code
+          {/* Content */}
+          {errorDetailLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loading size="lg" text="Loading error details..." />
+            </div>
+          ) : error ? (
+            <div className="text-red-500 p-8 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-800 text-center">
+              <Bug className="w-12 h-12 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">
+                Error Loading Details
+              </h3>
+              <p>{error}</p>
+            </div>
+          ) : selectedError ? (
+            <div className="space-y-12">
+              {/* Error Message Section */}
+              <section>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    {isResolved ? (
+                      <CheckCheck className="w-5 h-5" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5" />
+                    )}
+                    <h3 className="text-lg font-semibold">Error Message</h3>
                   </div>
-                  <div className="text-sm font-mono">
-                    {selectedError.vscodeVersion}
-                  </div>
-                </div>
-              )}
-              {selectedError.extensionVersion && (
-                <div className="bg-muted/30 p-3 rounded-lg">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">
-                    Extension
-                  </div>
-                  <div className="text-sm font-mono">
-                    {selectedError.extensionVersion}
-                  </div>
-                </div>
-              )}
-              {selectedError.operatingSystem && (
-                <div className="bg-muted/30 p-3 rounded-lg">
-                  <div className="text-xs font-semibold text-muted-foreground mb-1">
-                    OS
-                  </div>
-                  <div className="text-sm font-mono">
-                    {selectedError.operatingSystem}
+                  <div className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 rounded-xl border border-red-200 dark:border-red-800 overflow-hidden">
+                    <div className="p-6">
+                      <p className="text-red-800 dark:text-red-200 text-lg font-medium">
+                        {selectedError.message}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              </section>
+
+              {/* Metadata Grid */}
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Date Created</span>
+                  </div>
+                  <p className="text-sm text-gray-800 dark:text-gray-200 font-mono">
+                    {formatLastActivityTime(selectedError.createdAt, false)}
+                  </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Layers2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Category</span>
+                  </div>
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    {selectedError.category}
+                  </p>
+                </div>
+
+                {selectedError.action && (
+                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                      <Hammer className="w-4 h-4" />
+                      <span className="text-sm font-medium">Action</span>
+                    </div>
+                    <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                      {selectedError.action}
+                    </p>
+                  </div>
+                )}
+
+                {selectedError.userId && (
+                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                      <User className="w-4 h-4" />
+                      <span className="text-sm font-medium">User ID</span>
+                    </div>
+                    <p className="text-sm font-mono text-gray-800 dark:text-gray-200 break-all">
+                      {selectedError.userId}
+                    </p>
+                  </div>
+                )}
+
+                {selectedError.errorCode && (
+                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                      <Hash className="w-4 h-4" />
+                      <span className="text-sm font-medium">Error Code</span>
+                    </div>
+                    <p className="text-sm font-mono font-semibold text-red-600 dark:text-red-400">
+                      {selectedError.errorCode}
+                    </p>
+                  </div>
+                )}
+
+                {(selectedError.vscodeVersion ||
+                  selectedError.extensionVersion ||
+                  selectedError.operatingSystem) && (
+                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                      <Monitor className="w-4 h-4" />
+                      <span className="text-sm font-medium">System Info</span>
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-800 dark:text-gray-200">
+                      {selectedError.vscodeVersion && (
+                        <div>VS Code: {selectedError.vscodeVersion}</div>
+                      )}
+                      {selectedError.extensionVersion && (
+                        <div>Ext: {selectedError.extensionVersion}</div>
+                      )}
+                      {selectedError.operatingSystem && (
+                        <div>OS: {selectedError.operatingSystem}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Expandable Sections */}
+              <section className="space-y-6">
+                {selectedError.stackTrace && (
+                  <ExpandableSection
+                    title="Stack Trace"
+                    icon={
+                      <Code className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    }
+                  >
+                    <pre className="text-xs bg-slate-900 dark:bg-slate-800 text-green-400 p-4 rounded-xl overflow-x-auto shadow-inner font-mono whitespace-pre-wrap">
+                      {selectedError.stackTrace}
+                    </pre>
+                  </ExpandableSection>
+                )}
+
+                {selectedError.context && (
+                  <ExpandableSection
+                    title="Context Data"
+                    icon={
+                      <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    }
+                  >
+                    <ContextDisplay data={selectedError.context} />
+                  </ExpandableSection>
+                )}
+              </section>
+
+              {/* Actions */}
+              {!isResolved && (
+                <section className="flex justify-end">
+                  <Button
+                    onClick={handleResolveError}
+                    disabled={isResolving}
+                    className="px-6 py-2 flex items-center gap-2 shadow-lg"
+                  >
+                    {isResolving ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    Mark as Resolved
+                  </Button>
+                </section>
               )}
             </div>
-          </ExpandableSection>
-        )}
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-6">
-          {!selectedError.resolved && (
-            <Button
-              onClick={handleResolveError}
-              disabled={isResolving}
-              className="px-6 py-2 flex items-center gap-2 shadow-lg"
-            >
-              {isResolving ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              Mark as Resolved
-            </Button>
+          ) : (
+            <div className="text-center text-gray-500 dark:text-gray-400 p-12">
+              <Bug className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No error details available</p>
+            </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </>
   );
 };
 

@@ -65,12 +65,14 @@ export const ClassDetailsCard = ({
         bugPercentage: 50,
         showNotifications: true,
         mode: "CODE_BLOCK" as UserMode,
+        enableDashboard: false,
       };
     }
 
     // Count each setting
     const enableQuizCount = { true: 0, false: 0 };
     const showNotificationsCount = { true: 0, false: 0 };
+    const enableDashboardCount = { true: 0, false: 0 };
     const modeCount: Record<string, number> = {};
     const bugPercentages: number[] = [];
 
@@ -79,6 +81,10 @@ export const ClassDetailsCard = ({
         enableQuizCount[student.settings.enableQuiz ? "true" : "false"]++;
         showNotificationsCount[
           student.settings.showNotifications ? "true" : "false"
+        ]++;
+
+        enableDashboardCount[
+          student.settings.enableDashboard ? "true" : "false"
         ]++;
 
         const mode = student.settings.mode;
@@ -98,6 +104,11 @@ export const ClassDetailsCard = ({
       showNotificationsCount.true === showNotificationsCount.false
         ? true
         : showNotificationsCount.true > showNotificationsCount.false;
+
+    const mostCommonEnableDashboard =
+      enableDashboardCount.true === enableDashboardCount.false
+        ? true
+        : enableDashboardCount.true > enableDashboardCount.false;
 
     const sortedModes = Object.entries(modeCount).sort(([, a], [, b]) => b - a);
     const mostCommonMode =
@@ -128,6 +139,7 @@ export const ClassDetailsCard = ({
       bugPercentage: mostCommonBugPercentage,
       showNotifications: mostCommonShowNotifications,
       mode: mostCommonMode as UserMode,
+      enableDashboard: mostCommonEnableDashboard,
     };
   };
 
@@ -163,7 +175,6 @@ export const ClassDetailsCard = ({
         studentIds,
         classSettings
       );
-      console.log("Saving settings:", classSettings);
 
       setEditMode(false);
 

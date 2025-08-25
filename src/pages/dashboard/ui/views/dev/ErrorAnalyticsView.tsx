@@ -24,18 +24,6 @@ const ErrorAnalyticsView = ({ description }: ErrorAnalyticsViewProps) => {
     return (
       <div className="min-h-screen overflow-y-auto">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Back Button */}
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={handleBackToList}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Error List
-            </Button>
-          </div>
-
           {/* Error Details Card */}
           <div className="w-full">
             <ErrorDetailsView
