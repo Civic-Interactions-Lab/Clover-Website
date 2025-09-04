@@ -52,7 +52,7 @@ const UsersDataTable = () => {
   }, [users, nameFilter, roleFilter, statusFilter, modeFilter]);
 
   const handleRowClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    navigate(`/dashboard/users/${userId}`);
   };
 
   if (error) {

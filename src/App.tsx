@@ -29,6 +29,7 @@ import { PublicLayout } from "./pages/PublicLayout";
 import UserDetailsView from "./pages/dashboard/ui/views/admin/UserDetailsView";
 import CreateEditConsentView from "./pages/dashboard/ui/views/admin/CreateEditConsentView";
 import SuggestionDetailsView from "./pages/dashboard/ui/views/student/SuggestionDetailsView";
+import UserEditsViewer from "./pages/dashboard/ui/views/admin/UserEditsViewer";
 
 const queryClient = new QueryClient();
 
@@ -65,7 +66,16 @@ const App = (): JSX.Element => {
                 <Route element={<ConstructionRoute />}>
                   {/* Auth Routes */}
                   <Route element={<ProtectedRoute />}>
-                    <Route path="/dashboard/*" element={<Dashboard />} />
+                    <Route path="/dashboard/*" element={<Dashboard />}>
+                      <Route
+                        path="users/:userId"
+                        element={<UserDetailsView />}
+                      />
+                      <Route
+                        path="users/:userId/edits"
+                        element={<UserEditsViewer />}
+                      />
+                    </Route>
                     <Route path="/quiz" element={<QuizPage />} />
                     <Route path="/settings" element={<SettingsView />} />
                     <Route path="/profile" element={<Profile />} />
@@ -81,10 +91,7 @@ const App = (): JSX.Element => {
                       path="/classes/create"
                       element={<ClassCreateEditView />}
                     />
-                    <Route
-                      path="/users/:userId"
-                      element={<UserDetailsView />}
-                    />
+
                     <Route
                       path="/suggestion-details"
                       element={<SuggestionDetailsView />}
