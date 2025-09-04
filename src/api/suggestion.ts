@@ -3,7 +3,7 @@ import {
   SuggestionData,
   UserActivityLogItem,
 } from "../types/suggestion";
-import { AI_SUGGESTION_ENDPOINT } from "./endpoints";
+import { AI_SUGGESTION_ENDPOINT, LOG_ENDPOINT } from "./endpoints";
 import { UserMode } from "../types/user";
 import { MODE_CONFIG } from "@/types/mode";
 
@@ -55,6 +55,52 @@ export async function getSuggestionByModeAndId(
     };
 
     return { data: config.transform(backendData, base) };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    };
+  }
+}
+
+export interface UserDiffsResponse {
+  userId: string;
+  groups: GroupDiff[];
+}
+
+export interface GroupDiff {
+  groupId: string;
+  language: string;
+  prompt: string;
+  steps: RenderedStep[];
+}
+
+export interface RenderedStep {
+  suggestionId: string;
+  event: string;
+  shownBug: boolean;
+  appended: string;
+  createdAt: string;
+  diff: string;
+  after: string;
+}
+
+export async function getUserDiffsByTime(
+  userId: string,
+  startTime: string,
+  endTime: string
+): Promise<{ data?: UserDiffsResponse; error?: string }> {
+  try {
+    const response = await fetch(`${LOG_ENDPOINT}/diffs/${userId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      return { error: `Request failed with status ${response.status}` };
+    }
+
+    const data = (await response.json()) as UserDiffsResponse;
+    return { data };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Unknown error occurred",
