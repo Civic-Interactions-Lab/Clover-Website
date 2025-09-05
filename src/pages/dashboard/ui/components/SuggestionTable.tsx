@@ -46,10 +46,12 @@ export const SuggestionTable = ({
     return isCorrect ? "Correct" : "Incorrect";
   };
 
-  const handleRowClick = (logItem: UserActivityLogItem) => {
+  const handleRowClick = (logItem: UserActivityLogItem, index: number) => {
     navigate("/suggestion-details", {
       state: {
         logItem,
+        logItems,
+        currentIndex: index,
         mode,
         correctness: getDecisionCorrectness(logItem),
       },
@@ -78,7 +80,7 @@ export const SuggestionTable = ({
               <TableRow
                 key={logItem.id}
                 className="cursor-pointer bg-white/40 dark:bg-black/40 hover:bg-muted/50 dark:hover:bg-muted/50 transition-colors border-b border-muted text-center"
-                onClick={() => handleRowClick(logItem)}
+                onClick={() => handleRowClick(logItem, index)}
               >
                 <TableCell className="py-3">{startIndex + index + 1}</TableCell>
                 <TableCell>
