@@ -72,6 +72,8 @@ export interface GroupDiff {
   language: string;
   prompt: string;
   steps: RenderedStep[];
+  eventTime: string;
+  fileName: string;
 }
 
 export interface RenderedStep {
@@ -90,7 +92,13 @@ export async function getUserDiffsByTime(
   endTime: string
 ): Promise<{ data?: UserDiffsResponse; error?: string }> {
   try {
-    const response = await fetch(`${LOG_ENDPOINT}/diffs/${userId}`, {
+    const url = new URL(`${LOG_ENDPOINT}/diffs/${userId}`);
+    const queryParams = new URLSearchParams({
+      start: startTime,
+      end: endTime,
+    });
+    url.search = queryParams.toString();
+    const response = await fetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });

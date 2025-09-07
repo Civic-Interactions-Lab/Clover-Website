@@ -3,7 +3,22 @@ import {
   RenderedStep,
   UserDiffsResponse,
 } from "@/api/suggestion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
@@ -32,12 +47,32 @@ export default function DiffTimeline() {
 
   const timeline = useMemo(() => {
     if (!diffs) return [];
-    const all: { groupId: string; step: RenderedStep; prompt: string }[] = [];
+
+    const all: {
+      groupId: string;
+      step: RenderedStep;
+      prompt: string;
+      resetFile: boolean;
+    }[] = [];
+    let lastPrompt: string | null = null;
+
     for (const g of diffs.groups) {
       for (const s of g.steps) {
-        all.push({ groupId: g.groupId, step: s, prompt: g.prompt });
+        const normalizedPrompt = g.prompt.trim();
+        const resetFile =
+          lastPrompt !== null && normalizedPrompt !== lastPrompt;
+
+        all.push({
+          groupId: g.groupId,
+          step: s,
+          prompt: normalizedPrompt,
+          resetFile,
+        });
+
+        lastPrompt = normalizedPrompt;
       }
     }
+
     return all;
   }, [diffs]);
 
@@ -47,47 +82,87 @@ export default function DiffTimeline() {
     return <p>No diffs available</p>;
   }
 
-  const { groupId, step, prompt } = timeline[stepIndex];
+  const { groupId, step } = timeline[stepIndex];
   const [diff] = parseDiff(step.diff);
 
   if (error) return <p className="text-red-500">Error: {error}</p>;
   if (!diffs) return <p>Loading diffs…</p>;
 
   return (
-    <div className="space-y-4">
-      <h2 className="font-semibold">Group {groupId}</h2>
-      <pre className="text-xs bg-gray-50 p-2 rounded mb-4 overflow-auto">
-        {prompt}
-      </pre>
+    <TooltipProvider delayDuration={100}>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Group {groupId}</CardTitle>
+          </CardHeader>
+          <Badge className="m-4 bg-secondary" variant="secondary">
+            {}
+          </Badge>
 
-      <div className="flex justify-between items-center mb-2">
-        <button
-          disabled={stepIndex === 0}
-          onClick={() => setStepIndex((i) => Math.max(i - 1, 0))}
-          className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
-        >
-          ← Previous
-        </button>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={stepIndex === 0}
+                    onClick={() => setStepIndex((i) => Math.max(i - 1, 0))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous Step</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Previous Step</TooltipContent>
+              </Tooltip>
 
-        <div>
-          Step {stepIndex + 1} of {timeline.length} — event:{" "}
-          <strong>{step.event}</strong> {step.shownBug ? "(bug shown)" : ""}
-        </div>
+              <div className="text-center text-sm text-muted-foreground">
+                <div>
+                  Step {stepIndex + 1} of {timeline.length}
+                </div>
+                <div className="flex items-center space-x-2 justify-center mt-1">
+                  <Badge className="bg-primary" variant="secondary">
+                    {step.event}
+                  </Badge>
+                  {step.shownBug && (
+                    <Badge variant="destructive">Bug Shown</Badge>
+                  )}
+                </div>
+              </div>
 
-        <button
-          disabled={stepIndex === timeline.length - 1}
-          onClick={() =>
-            setStepIndex((i) => Math.min(i + 1, timeline.length - 1))
-          }
-          className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
-        >
-          Next →
-        </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={stepIndex === timeline.length - 1}
+                    onClick={() =>
+                      setStepIndex((i) => Math.min(i + 1, timeline.length - 1))
+                    }
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next Step</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Next Step</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="rounded-md border bg-muted/20 dark:bg-muted/30 overflow-hidden">
+              <Diff
+                viewType="split"
+                diffType={diff.type || "modify"}
+                hunks={diff.hunks}
+              >
+                {(hunks) =>
+                  hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)
+                }
+              </Diff>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex items-center justify-between"></CardFooter>
+        </Card>
       </div>
-
-      <Diff viewType="split" diffType="modify" hunks={diff.hunks}>
-        {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
-      </Diff>
-    </div>
+    </TooltipProvider>
   );
 }
