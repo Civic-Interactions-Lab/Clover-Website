@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Code,
   FileText,
   Zap,
@@ -31,10 +33,12 @@ const SuggestionDetailsView = () => {
   const navigate = useNavigate();
 
   // Extract data from navigation state
-  const logItem = location.state?.logItem as UserActivityLogItem;
+  const logItems = location.state?.logItems as UserActivityLogItem[];
+  const initialIndex = location.state?.currentIndex as number;
   const mode = location.state?.mode as UserMode;
-  const correctness = location.state?.correctness as string;
 
+  // State for current item navigation
+  const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
   const [suggestionDetail, setSuggestionDetail] =
     useState<SuggestionData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +51,38 @@ const SuggestionDetailsView = () => {
     explanation: false,
   });
 
+  // Get current log item
+  const currentLogItem = logItems?.[currentIndex];
+
+  // Helper function to determine correctness
+  const getDecisionCorrectness = (logItem: UserActivityLogItem) => {
+    const isAccept =
+      logItem.event.includes("ACCEPT") || logItem.event.includes("accept");
+    const hasBug = logItem.hasBug || logItem.hasBug;
+    const isCorrect = (isAccept && !hasBug) || (!isAccept && hasBug);
+    return isCorrect ? "Correct" : "Incorrect";
+  };
+
+  const correctness = currentLogItem
+    ? getDecisionCorrectness(currentLogItem)
+    : "";
+
+  // Navigation functions
+  const canGoNext = currentIndex < (logItems?.length || 0) - 1;
+  const canGoPrevious = currentIndex > 0;
+
+  const handleNext = () => {
+    if (canGoNext) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (canGoPrevious) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -54,9 +90,9 @@ const SuggestionDetailsView = () => {
     }));
   };
 
-  // Redirect if no data is passed
+  // Fetch suggestion when currentIndex changes
   useEffect(() => {
-    if (!logItem || !mode) {
+    if (!logItems || !mode || !currentLogItem) {
       navigate("/dashboard", { replace: true });
       return;
     }
@@ -66,7 +102,7 @@ const SuggestionDetailsView = () => {
       setFetchError(null);
 
       try {
-        const result = await getSuggestionByModeAndId(logItem, mode);
+        const result = await getSuggestionByModeAndId(currentLogItem, mode);
 
         if (result.error) {
           setFetchError(result.error);
@@ -75,6 +111,10 @@ const SuggestionDetailsView = () => {
 
         if (result.data) {
           setSuggestionDetail(result.data);
+          console.log(
+            "Fetched suggestion detail:",
+            JSON.stringify(result.data)
+          );
         }
       } catch (err) {
         setFetchError(
@@ -87,18 +127,19 @@ const SuggestionDetailsView = () => {
     };
 
     fetchSuggestion();
-  }, [logItem, mode, navigate]);
+  }, [currentLogItem, mode, navigate, logItems]);
 
   const handleGoBack = () => {
-    navigate(-1); // Go back to previous page
+    navigate(-1);
   };
 
-  if (!logItem || !mode) {
-    return null; // Will redirect via useEffect
+  if (!logItems || !mode || !currentLogItem) {
+    return null;
   }
 
   const isAccepted =
-    logItem.event.includes("ACCEPT") || logItem.event.includes("accept");
+    currentLogItem.event.includes("ACCEPT") ||
+    currentLogItem.event.includes("accept");
   const isCorrect = correctness === "Correct";
 
   const renderSuggestionContent = () => {
@@ -162,14 +203,27 @@ const SuggestionDetailsView = () => {
 
         case "LINE_BY_LINE": {
           const lineSuggestion = suggestionDetail as LineByLineSuggestion;
+
+          // Build the complete correct code block from all suggestions
+          const correctCodeBlock = lineSuggestion.suggestions
+            .map((suggestion) => suggestion.correctLine)
+            .join("\n");
+
+          const incorrectCodeBlock = lineSuggestion.suggestions
+            .map((suggestion) => {
+              if (suggestion.incorrectLine === lineSuggestion.incorrectLine) {
+                return lineSuggestion.incorrectLine;
+              }
+              return suggestion.correctLine;
+            })
+            .join("\n");
+
           return (
             <CodeDiffViewer
-              oldCode={
-                lineSuggestion.correctLine || "No original line provided"
-              }
-              newCode={lineSuggestion.incorrectLine || "No fixed line provided"}
-              oldTitle="Original Line"
-              newTitle="Fixed Line"
+              oldCode={incorrectCodeBlock}
+              newCode={correctCodeBlock}
+              oldTitle="Code with Bug"
+              newTitle="Corrected Code"
               language={suggestionDetail.language || "javascript"}
             />
           );
@@ -294,9 +348,38 @@ const SuggestionDetailsView = () => {
               <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                 Code Suggestion Details
               </h1>
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span>
+                  ({currentIndex + 1} of {logItems.length})
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Navigation Controls */}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePrevious}
+                  disabled={!canGoPrevious}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNext}
+                  disabled={!canGoNext}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+
               <Badge
                 variant={isAccepted ? "default" : "destructive"}
                 className="px-3 py-1 text-sm font-medium rounded-2xl"
@@ -312,7 +395,7 @@ const SuggestionDetailsView = () => {
             </div>
           </div>
 
-          {/* Content */}
+          {/* Content - Only render when not loading */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <Loading size="lg" text="Loading suggestion details..." />
@@ -338,15 +421,16 @@ const SuggestionDetailsView = () => {
                     <span className="text-sm font-medium">Date Created</span>
                   </div>
                   <p className="text-sm text-gray-800 dark:text-gray-200 font-mono">
-                    {new Date(
-                      logItem.createdAt || logItem.createdAt
-                    ).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {new Date(currentLogItem.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </p>
                 </div>
 
@@ -357,12 +441,12 @@ const SuggestionDetailsView = () => {
                   </div>
                   <p
                     className={`text-sm font-semibold ${
-                      suggestionDetail.hasBug
+                      suggestionDetail.shownBug
                         ? "text-red-600 dark:text-red-400"
                         : "text-green-600 dark:text-green-400"
                     }`}
                   >
-                    {suggestionDetail.hasBug ? "Yes" : "No"}
+                    {suggestionDetail.shownBug ? "Yes" : "No"}
                   </p>
                 </div>
 
