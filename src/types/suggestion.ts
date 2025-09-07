@@ -21,6 +21,10 @@ export interface LineByLineSuggestion extends BaseSuggestion {
   correctLine?: string;
   incorrectLine?: string;
   shownBug: boolean;
+  suggestions: Array<{
+    correctLine: string;
+    incorrectLine: string;
+  }>;
 }
 
 export interface CodeSelectionSuggestion extends BaseSuggestion {
