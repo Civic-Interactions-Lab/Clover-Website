@@ -29,6 +29,7 @@ import ClassesDropdownMenu from "../../components/ClassesDropdownMenu";
 import { useUserClasses } from "@/hooks/useUserClasses";
 import ActivityStatsCards from "@/pages/profile/ui/components/ActivityStatsCards";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
+import UserDataDownload from "@/components/UserDataDownload";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -225,12 +226,7 @@ const UserDetailsView = () => {
       <div className="space-y-6 max-w-7xl mx-auto px-8">
         {/* User Details Section */}
         <div className="flex items-center justify-between">
-          <Button
-            className=""
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          >
-            Download User Data
-          </Button>
+          <UserDataDownload userId={userId!} />
           <Button onClick={() => handleEditViewClick(userId!)}>
             View User Edits
           </Button>
