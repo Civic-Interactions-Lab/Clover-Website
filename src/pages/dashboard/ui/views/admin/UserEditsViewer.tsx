@@ -13,6 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -74,11 +79,16 @@ export default function DiffTimeline() {
     setLoading(true);
     setError(null);
 
+    if (!userId) {
+      setError("No user ID provided");
+      setLoading(false);
+      return;
+    }
+
     const startDateTime = `${startDate}T${startTime}:00Z`;
     const endDateTime = `${endDate}T${endTime}:59Z`;
-    console.log(userId);
     const { data, error } = await getUserDiffsByTime(
-      userId || "",
+      userId,
       startDateTime,
       endDateTime
     );
@@ -434,9 +444,7 @@ export default function DiffTimeline() {
                     Bug Detected
                   </Badge>
                 )}
-                <Badge variant="outline" className="font-mono">
-                  {step.lines} lines
-                </Badge>
+                <StepLinesBadge step={step} />
               </div>
             </div>
 
@@ -462,5 +470,37 @@ export default function DiffTimeline() {
         </Card>
       </div>
     </TooltipProvider>
+  );
+}
+
+function StepLinesBadge({ step }: { step: RenderedStep }) {
+  const total = step.lines?.length ?? 0;
+
+  if (total === 0) {
+    return (
+      <Badge variant="outline" className="font-mono">
+        0 lines
+      </Badge>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Badge
+          variant={total > 0 ? "secondary" : "outline"}
+          className="cursor-pointer font-mono"
+        >
+          {total} lines
+        </Badge>
+      </PopoverTrigger>
+      <PopoverContent className="p-2 space-y-1 max-h-60 overflow-y-auto font-mono text-sm">
+        {step.lines?.map((line: string, idx: number) => (
+          <div key={idx} className={"text-blue-600"}>
+            {line}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }
