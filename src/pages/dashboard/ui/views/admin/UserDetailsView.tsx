@@ -476,8 +476,6 @@ const UserDetailsView = () => {
           mode={displayUser?.settings?.mode as UserMode}
         />
       </div>
-
-      <Footer />
     </>
   );
 };

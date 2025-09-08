@@ -84,6 +84,7 @@ export interface RenderedStep {
   createdAt: string;
   diff: string;
   after: string;
+  lines: string[];
 }
 
 export async function getUserDiffsByTime(
