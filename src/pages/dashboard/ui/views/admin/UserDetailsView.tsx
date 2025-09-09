@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   User,
   UserMode,
@@ -29,10 +29,12 @@ import ClassesDropdownMenu from "../../components/ClassesDropdownMenu";
 import { useUserClasses } from "@/hooks/useUserClasses";
 import ActivityStatsCards from "@/pages/profile/ui/components/ActivityStatsCards";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
+import UserDataDownload from "@/components/UserDataDownload";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
   const { userData } = useUser();
+  const navigate = useNavigate();
 
   const [displayUser, setDisplayUser] = useState<User | null>(null);
   const [userLoading, setUserLoading] = useState(true);
@@ -107,6 +109,10 @@ const UserDetailsView = () => {
     selectedClassId,
     isRealtimeEnabled
   );
+
+  const handleEditViewClick = (userId: string) => {
+    navigate(`/dashboard/users/${userId}/edits`);
+  };
 
   const updateSetting = (key: keyof UserSettings, value: any) => {
     setSettings((prev) => ({ ...prev!, [key]: value }));
@@ -217,9 +223,14 @@ const UserDetailsView = () => {
 
   return (
     <>
-      <NavBar />
-      <div className="space-y-6 py-24 max-w-7xl mx-auto px-8">
+      <div className="space-y-6 max-w-7xl mx-auto px-8">
         {/* User Details Section */}
+        <div className="flex items-center justify-between">
+          <UserDataDownload userId={userId!} />
+          <Button onClick={() => handleEditViewClick(userId!)}>
+            View User Edits
+          </Button>
+        </div>
         <Card className="overflow-hidden">
           {/* Header */}
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-8">
@@ -461,8 +472,6 @@ const UserDetailsView = () => {
           mode={displayUser?.settings?.mode as UserMode}
         />
       </div>
-
-      <Footer />
     </>
   );
 };

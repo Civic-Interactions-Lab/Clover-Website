@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { UserRole } from "@/types/user";
 import DashboardSidebar from "@/pages/dashboard/ui/components/DashboardSidebar";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "@/context/UserContext";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { sidebarItems } from "@/constants/sidebarConfigs";
 import DashboardHeader from "@/pages/dashboard/ui/components/DashboardHeader";
-import Loading from "@/components/Loading";
 import { Chart, registerables } from "chart.js";
 
 Chart.register(...registerables);
@@ -55,8 +54,10 @@ const Dashboard = () => {
         <main className="flex-1 bg-background/80 dark:bg-[#0a0a0a] overflow-auto">
           <DashboardHeader title={title} role={effectiveRole} />
           <div className="w-full max-w-7xl mx-auto px-6">
-            {ActiveComponentView && (
+            {ActiveComponentView ? (
               <ActiveComponentView description={description} />
+            ) : (
+              <Outlet />
             )}
           </div>
           <div className="h-32" />

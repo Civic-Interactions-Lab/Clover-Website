@@ -53,7 +53,7 @@ const UsersDataTable = () => {
   }, [nameFilter, handleSearch]);
 
   const handleRowClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    navigate(`/dashboard/users/${userId}`);
   };
 
   const serverPagination = {
