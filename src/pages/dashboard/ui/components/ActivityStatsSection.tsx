@@ -16,6 +16,7 @@ import AccuracyDistributionBarChart from "./AccuracyDistributionBarChart";
 import ResponseTimeBarChart from "./ResponseTimeBarChart";
 import AccuracyTimeLineChart from "./AccuracyTimeLineChart";
 import LearningProgressChart from "./LearningProgressChart";
+import ResponseTimeLineChart from "./ResponseTimeLineChart";
 
 interface ActivityStatsSectionProps {
   // Data props - passed from parent
@@ -206,6 +207,11 @@ const ActivityStatsSection = ({
           title="Learning Progress"
         />
       )}
+
+      <ResponseTimeLineChart
+        userActivity={responseTimeData}
+        title="Response Time Trends"
+      />
 
       {/* Activity Table */}
       <Card className="p-6">
