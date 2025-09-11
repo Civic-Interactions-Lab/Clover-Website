@@ -8,9 +8,8 @@ import { Card } from "@/components/ui/card";
 import { useUser } from "@/context/UserContext";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 import { useUserClasses } from "@/hooks/useUserClasses";
-import { UserMode } from "@/types/user";
-import { supabase } from "@/supabaseClient";
-import { useEffect, useState } from "react";
+import { UserMode, UserRole } from "@/types/user";
+import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -54,12 +53,12 @@ const StudentLogsView = () => {
   }
 
   if (progressData.totalInteractions === 0) {
-    return <NoData role="student" />;
+    return <NoData role={UserRole.STUDENT} />;
   }
 
   return (
     <Card className="p-6">
-      <div className="flex items-center mb-3 gap-3">
+      <div className="flex items-center justify-between mb-3 gap-3">
         <CustomTooltip
           trigger={
             <h2 className="text-lg font-semibold text-[#50B498]">

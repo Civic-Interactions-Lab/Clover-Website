@@ -33,6 +33,7 @@ const ClassCreateEditView = () => {
   const imageUpload = useImageUpload({
     maxSize: 5 * 1024 * 1024,
     allowedTypes: ["image/jpeg", "image/png", "image/webp"],
+    bucketType: "class",
     onSuccess: (url) => {
       setFormData((prev) => ({ ...prev, classImageCover: url }));
     },

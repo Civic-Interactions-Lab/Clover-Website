@@ -157,10 +157,13 @@ export const useAllUsersWithActivity = (options?: UseAllUsersOptions) => {
   };
 };
 
-export const useAllUsersWithActivityAndSearch = (initialSearch = "") => {
+export const useAllUsersWithActivityAndSearch = (
+  initialSearch = "",
+  initialLimit = 10
+) => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(initialSearch);
-  const [limit] = useState(20);
+  const [limit, setLimit] = useState(initialLimit);
 
   const {
     users,
@@ -179,14 +182,9 @@ export const useAllUsersWithActivityAndSearch = (initialSearch = "") => {
 
   const sortedUsers = useMemo(() => {
     return [...users].sort((a, b) => {
-      // Users with activity first, then by most recent activity
-      if (!a.lastActivity && !b.lastActivity) return 0;
-      if (!a.lastActivity) return 1; // a goes to end
-      if (!b.lastActivity) return -1; // b goes to end
-
-      // Both have activity, sort by most recent first
       return (
-        new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+        new Date(b.lastActivity as any).getTime() -
+        new Date(a.lastActivity as any).getTime()
       );
     });
   }, [users]);
@@ -222,11 +220,17 @@ export const useAllUsersWithActivityAndSearch = (initialSearch = "") => {
     }
   }, [pagination]);
 
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setLimit(newLimit);
+    setPage(1);
+  }, []);
+
   return {
     // Data
     users: sortedUsers,
     pagination,
     totalUsers,
+    limit,
 
     // Loading states
     isLoading,
@@ -246,6 +250,7 @@ export const useAllUsersWithActivityAndSearch = (initialSearch = "") => {
     previousPage,
     firstPage,
     lastPage,
+    handleLimitChange,
   };
 };
 

@@ -1,0 +1,6 @@
+services:
+  clover:
+    image: clover-website:latest
+    build: .
+    ports:
+      - "8080:80"

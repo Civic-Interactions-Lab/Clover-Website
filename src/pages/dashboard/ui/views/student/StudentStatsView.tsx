@@ -1,18 +1,12 @@
-import DecisionLineChart from "@/pages/dashboard/ui/components/DecisionLineChart";
-import StatCard from "@/components/StatCard";
-import AccuracyDistributionBarChart from "@/pages/dashboard/ui/components/AccuracyDistributionBarChart";
-import AccuracyPieChart from "@/pages/dashboard/ui/components/AccuracyPieChart";
-import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 import { useUserClasses } from "@/hooks/useUserClasses";
-import NoData from "@/components/NoData";
 import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import ClassesDropdownMenu from "@/pages/dashboard/ui/components/ClassesDropdownMenu";
 import Loading from "@/components/Loading";
-import LearningProgressChart from "@/pages/dashboard/ui/components/LearningProgressChart";
-import AccuracyTimeLineChart from "@/pages/dashboard/ui/components/AccuracyTimeLineChart";
-import ResponseTimeBarChart from "@/pages/dashboard/ui/components/ResponseTimeBarChart";
 import { useLocation, useNavigate } from "react-router-dom";
+import ActivityStatsSection from "../../components/ActivityStatsSection";
+import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
+import { UserRole } from "@/types/user";
 
 /**
  * StudentStatsView component that displays user activity and progress.
@@ -25,6 +19,7 @@ const StudentStatsView = ({ description }: { description?: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const preselectedClassId = location.state?.preselectedClassId;
+  const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(false);
 
   useEffect(() => {
     if (preselectedClassId) {
@@ -39,23 +34,12 @@ const StudentStatsView = ({ description }: { description?: string }) => {
     loading: userClassLoading,
   } = useUserClasses(userData?.id, preselectedClassId || "all");
 
-  const {
-    userActivity,
-    progressData,
-    loading: userActivityLoading,
-  } = useUserActivity(userData?.id, userData?.settings.mode, selectedClassId);
-
-  const loading = userClassLoading || userActivityLoading;
-
-  const [pieChartData, setPieChartData] = useState<{
-    mode: "total" | "accepted" | "rejected";
-    statData: {
-      total: number;
-      correct: number;
-      accuracy: number;
-      title: string;
-    };
-  } | null>(null);
+  const { userActivity, loading, progressData } = useUserActivity(
+    userData?.id,
+    userData?.settings?.mode,
+    selectedClassId,
+    isRealtimeEnabled
+  );
 
   useEffect(() => {
     if (preselectedClassId && location.state) {
@@ -63,26 +47,13 @@ const StudentStatsView = ({ description }: { description?: string }) => {
     }
   }, [preselectedClassId, location.state]);
 
-  if (loading) {
+  if (userClassLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loading size="lg" text="Loading your data" />
       </div>
     );
   }
-
-  const statData = pieChartData?.statData || {
-    total: progressData.totalInteractions,
-    correct: progressData.correctSuggestions,
-    accuracy:
-      progressData.totalInteractions > 0
-        ? (progressData.correctSuggestions / progressData.totalInteractions) *
-          100
-        : 0,
-    title: "Total",
-  };
-
-  const currentMode = pieChartData?.mode || "total";
 
   return (
     <div className="space-y-8">
@@ -98,55 +69,18 @@ const StudentStatsView = ({ description }: { description?: string }) => {
           />
         </div>
       </div>
-      {progressData.totalInteractions === 0 ? (
-        <NoData role="student" />
-      ) : (
-        <div className="space-y-8">
-          {/* Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-            <StatCard
-              title={statData.title}
-              value={statData.total}
-              tooltipContent={`Total ${currentMode === "total" ? "interactions with " : currentMode} suggestions.`}
-            />
-            <StatCard
-              title="Correct"
-              value={statData.correct}
-              tooltipContent={`Number of ${currentMode} suggestions that were correct.`}
-            />
-            <StatCard
-              title="Accuracy"
-              value={`${statData.accuracy.toFixed(1)}%`}
-              tooltipContent={`Accuracy rate for ${currentMode} suggestions.`}
-            />
-          </div>
 
-          <div className=" grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <AccuracyPieChart
-              progressData={progressData}
-              onDataChange={setPieChartData}
-            />
-            <DecisionLineChart activities={userActivity} />
-          </div>
-
-          <AccuracyDistributionBarChart activities={userActivity} />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <ResponseTimeBarChart
-              userActivity={userActivity}
-              title="Average Response Time"
-            />
-
-            <AccuracyTimeLineChart userActivity={userActivity} />
-          </div>
-
-          <LearningProgressChart
-            userActivity={userActivity}
-            windowSize={20}
-            title="Learning Progress"
-          />
-        </div>
-      )}
+      <ActivityStatsSection
+        userActivity={userActivity}
+        progressData={progressData}
+        loading={loading}
+        userMode={userData?.settings?.mode}
+        userName={userData?.firstName}
+        role={UserRole.STUDENT}
+        showRealtimeToggle={true}
+        showLearningProgress={true}
+        onRealtimeToggle={setIsRealtimeEnabled}
+      />
     </div>
   );
 };

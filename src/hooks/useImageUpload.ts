@@ -12,6 +12,7 @@ interface ImageUploadResponse {
 interface UseImageUploadOptions {
   maxSize?: number; // in bytes
   allowedTypes?: string[];
+  bucketType?: "class" | "user";
   onSuccess?: (url: string) => void;
   onError?: (error: string) => void;
 }
@@ -20,6 +21,7 @@ export const useImageUpload = (options: UseImageUploadOptions = {}) => {
   const {
     maxSize = 5 * 1024 * 1024,
     allowedTypes = ["image/jpeg", "image/png", "image/webp"],
+    bucketType = "user",
     onSuccess,
     onError,
   } = options;
@@ -52,7 +54,9 @@ export const useImageUpload = (options: UseImageUploadOptions = {}) => {
     formData.append("image", file);
 
     try {
-      const response = await fetch(IMAGE_UPLOAD_ENDPOINT, {
+      const uploadUrl = `${IMAGE_UPLOAD_ENDPOINT}?type=${bucketType}`;
+
+      const response = await fetch(uploadUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${userId}`,

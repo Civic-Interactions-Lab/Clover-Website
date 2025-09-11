@@ -14,52 +14,57 @@ import {
   UserWithActivity,
   useAllUsersWithActivityAndSearch,
 } from "@/pages/dashboard/hooks/useAllUsersActivity";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import UserInfoTableCard from "./UserInfoTableCard";
 import UserDataSearchFilters from "./UserDataSearchFilter";
 import ModeBadge from "@/components/ModeBadge";
 import RoleBadge from "@/components/RoleBadge";
 import StatusBadge from "@/components/StatusBadge";
-import UserDetailsCard from "./UserDetailsCard";
 import UserAvatar from "@/components/UserAvatar";
 import { formatActivityTimestamp, isOnline } from "@/utils/timeConverter";
+import { useNavigate } from "react-router-dom";
 
 const UsersDataTable = () => {
-  const [selectedUser, setSelectedUser] = useState<UserWithActivity | null>(
-    null
-  );
+  const navigate = useNavigate();
   const [nameFilter, setNameFilter] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [modeFilter, setModeFilter] = useState<string>("all");
 
-  const { users, isLoading, error } = useAllUsersWithActivityAndSearch();
+  const {
+    users,
+    isLoading,
+    error,
+    pagination,
+    page,
+    hasNextPage,
+    hasPreviousPage,
+    totalUsers,
+    handlePageChange,
+    handleLimitChange,
+    handleSearch,
+  } = useAllUsersWithActivityAndSearch();
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
-      const matchName =
-        (user.firstName + " " + user.lastName)
-          .toLowerCase()
-          .includes(nameFilter.toLowerCase()) ||
-        user.email.toLowerCase().includes(nameFilter.toLowerCase());
+  useEffect(() => {
+    let searchTerms = [];
 
-      const matchRole = roleFilter === "all" || user.role === roleFilter;
-      const matchStatus =
-        statusFilter === "all" || user.status === statusFilter;
-      const matchMode =
-        modeFilter === "all" || user.activityMode === modeFilter;
+    if (nameFilter.trim()) {
+      searchTerms.push(nameFilter.trim());
+    }
 
-      return matchName && matchRole && matchStatus && matchMode;
-    });
-  }, [users, nameFilter, roleFilter, statusFilter, modeFilter]);
+    handleSearch(searchTerms.join(" "));
+  }, [nameFilter, handleSearch]);
 
   const handleRowClick = (userId: string) => {
-    const user = users.find((user) => user.id === userId);
-    setSelectedUser(user || null);
+    navigate(`/dashboard/users/${userId}`);
   };
 
-  const handleCloseModal = () => {
-    setSelectedUser(null);
+  const serverPagination = {
+    currentPage: page,
+    totalPages: pagination?.totalPages || 1,
+    hasNextPage,
+    hasPreviousPage,
+    onPageChange: handlePageChange,
+    onItemsPerPageChange: handleLimitChange,
+    totalItems: totalUsers,
+    isLoading,
   };
 
   if (error) {
@@ -72,18 +77,12 @@ const UsersDataTable = () => {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && users.length === 0) {
     return (
       <div className="space-y-4">
         <UserDataSearchFilters
           nameFilter={nameFilter}
           setNameFilter={setNameFilter}
-          roleFilter={roleFilter}
-          setRoleFilter={setRoleFilter}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          modeFilter={modeFilter as UserMode}
-          setModeFilter={setModeFilter}
         />
         {/* Loading skeleton for mobile cards */}
         <div className="block lg:hidden space-y-3">
@@ -133,6 +132,7 @@ const UsersDataTable = () => {
                       showNotifications: true,
                       bugPercentage: 0,
                       enableQuiz: true,
+                      enableDashboard: true,
                     },
                     totalAccepted: 0,
                     totalRejected: 0,
@@ -162,19 +162,15 @@ const UsersDataTable = () => {
         <UserDataSearchFilters
           nameFilter={nameFilter}
           setNameFilter={setNameFilter}
-          roleFilter={roleFilter}
-          setRoleFilter={setRoleFilter}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          modeFilter={modeFilter as UserMode}
-          setModeFilter={setModeFilter}
+          gridClassName="w-full md:w-1/2 lg:w-1/3"
         />
       </div>
 
       {/* Mobile Card View */}
       <div className="block lg:hidden space-y-3">
         <PaginatedTable
-          data={filteredUsers}
+          data={users}
+          serverPagination={serverPagination}
           renderTable={(currentItems, startIndex) => (
             <div className="space-y-3">
               {currentItems.map((user, index) => (
@@ -203,7 +199,8 @@ const UsersDataTable = () => {
       {/* Desktop Table View */}
       <div className="hidden lg:block">
         <PaginatedTable
-          data={filteredUsers}
+          data={users}
+          serverPagination={serverPagination}
           renderTable={(currentItems, startIndex) => (
             <div className="border rounded-md shadow-sm overflow-hidden">
               <Table className="table-fixed">
@@ -221,6 +218,14 @@ const UsersDataTable = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {isLoading && users.length > 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-4">
+                        <div className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                        <span className="ml-2">Loading...</span>
+                      </TableCell>
+                    </TableRow>
+                  )}
                   {currentItems.map((user, index) => (
                     <UserActivityRow
                       key={`${user.id}-${index}`}
@@ -235,10 +240,6 @@ const UsersDataTable = () => {
           )}
         />
       </div>
-
-      {selectedUser && (
-        <UserDetailsCard user={selectedUser} onClose={handleCloseModal} />
-      )}
     </>
   );
 };

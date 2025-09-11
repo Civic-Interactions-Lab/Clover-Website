@@ -220,10 +220,17 @@ export async function updateUser(
   error?: string;
 }> {
   try {
+    const backendPayload = {
+      ...payload,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      avatar_url: payload.avatarUrl,
+    };
+
     const response = await fetch(`${USER_ENDPOINT}/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(backendPayload),
     });
 
     if (!response.ok) {

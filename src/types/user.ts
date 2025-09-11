@@ -37,6 +37,7 @@ export interface User {
   role: UserRole;
   status: UserStatus;
   avatarUrl?: string;
+  pid?: string;
   settings: UserSettings;
   // last_updated_at?: string;
   // auth_created_at?: string;
@@ -51,6 +52,7 @@ export type UserSettings = {
   bugPercentage: number;
   showNotifications: boolean;
   mode: UserMode;
+  enableDashboard: boolean;
 };
 
 export interface ProgressData {

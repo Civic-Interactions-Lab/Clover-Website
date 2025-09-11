@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import ThemeToggle from "./ThemeToggle";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +28,17 @@ export const NavBar = () => {
   const { userData } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 50);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleSignOut = async () => {
     supabase.auth.signOut();
@@ -39,7 +50,9 @@ export const NavBar = () => {
     { to: "/home", label: "Home" },
     ...(isAuthenticated
       ? [
-          { to: "/dashboard", label: "Dashboard" },
+          ...(userData?.settings?.enableDashboard !== false
+            ? [{ to: "/dashboard", label: "Dashboard" }]
+            : []),
           ...(userData?.role === UserRole.STUDENT
             ? [{ to: "/quiz", label: "Review" }]
             : []),
@@ -50,7 +63,17 @@ export const NavBar = () => {
   ];
 
   return (
-    <nav className="bg-white dark:bg-[#0a0a0a] flex justify-between items-center py-3 pl-8 pr-4 md:pl-12 md:pr-6 fixed w-full top-0 z-50 ">
+    <nav
+      className={`
+        flex justify-between items-center py-3 pl-8 pr-4 md:pl-12 md:pr-6 
+        fixed w-full top-0 z-50 transition-all duration-300
+        ${
+          isScrolled
+            ? "bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200/20 dark:border-gray-700/20 shadow-sm"
+            : "bg-white dark:bg-[#0a0a0a]"
+        }
+      `}
+    >
       <div className="flex items-center space-x-4">
         <Link to="/home" className="flex items-center space-x-2 md:space-x-3">
           <CloverLogo size="md" />

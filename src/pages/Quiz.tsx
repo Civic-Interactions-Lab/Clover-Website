@@ -47,7 +47,7 @@ type QuizControlsProps = {
 /**
  * Displays the controls for generating a new quiz or opening a previous one.
  */
-const QuizControls: React.FC<QuizControlsProps> = ({
+const QuizControls = ({
   classes,
   selectedClassId,
   onClassSelect,
@@ -56,7 +56,7 @@ const QuizControls: React.FC<QuizControlsProps> = ({
   previousQuizzes,
   onPreviousQuizSelect,
   onOpenPreviousQuiz,
-}) => (
+}: QuizControlsProps) => (
   <Card className="p-6 mb-6 w-container grid grid-cols-1 sm:grid-cols-6 gap-4">
     <div className="col-span-full sm:col-span-2">
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -117,12 +117,12 @@ type QuizDisplayProps = {
 /**
  * Renders the list of quiz questions and their choices.
  */
-const QuizDisplay: React.FC<QuizDisplayProps> = ({
+const QuizDisplay = ({
   quiz,
   answers,
   submitting,
   onAnswerSelect,
-}) => (
+}: QuizDisplayProps) => (
   <div className="space-y-10 max-h-[60vh] overflow-y-auto pr-2">
     {quiz.map((question, index) => (
       <div key={question.id}>
@@ -183,13 +183,13 @@ type QuizResultsProps = {
 /**
  * Displays the results of the quiz after submission.
  */
-const QuizResults: React.FC<QuizResultsProps> = ({
+const QuizResults = ({
   score,
   totalQuestions,
   passed,
   onTryAgain,
   onBackToDashboard,
-}) => (
+}: QuizResultsProps) => (
   <>
     <p className="mt-4 text-green-600 font-semibold">
       Your answers have been submitted!
@@ -238,7 +238,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
  * QuizPage component that orchestrates quiz generation, interaction, and review.
  * It holds the primary state and logic, passing data and handlers to child components.
  */
-export const QuizPage: React.FC = () => {
+export const QuizPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 

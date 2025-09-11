@@ -3,7 +3,7 @@ import {
   SuggestionData,
   UserActivityLogItem,
 } from "../types/suggestion";
-import { AI_SUGGESTION_ENDPOINT } from "./endpoints";
+import { AI_SUGGESTION_ENDPOINT, LOG_ENDPOINT } from "./endpoints";
 import { UserMode } from "../types/user";
 import { MODE_CONFIG } from "@/types/mode";
 
@@ -51,10 +51,65 @@ export async function getSuggestionByModeAndId(
       vendor: backendData.vendor || "",
       language: backendData.language || "",
       refinedPrompt: backendData.refined_prompt,
-      explanations: backendData.explanations || [],
+      explanations: backendData.explanations,
     };
 
     return { data: config.transform(backendData, base) };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    };
+  }
+}
+
+export interface UserDiffsResponse {
+  userId: string;
+  groups: GroupDiff[];
+}
+
+export interface GroupDiff {
+  groupId: string;
+  language: string;
+  prompt: string;
+  steps: RenderedStep[];
+  eventTime: string;
+  fileName: string;
+}
+
+export interface RenderedStep {
+  suggestionId: string;
+  event: string;
+  shownBug: boolean;
+  appended: string;
+  createdAt: string;
+  diff: string;
+  after: string;
+  lines: string[];
+}
+
+export async function getUserDiffsByTime(
+  userId: string,
+  startTime: string,
+  endTime: string
+): Promise<{ data?: UserDiffsResponse; error?: string }> {
+  try {
+    const url = new URL(`${LOG_ENDPOINT}/diffs/${userId}`);
+    const queryParams = new URLSearchParams({
+      start: startTime,
+      end: endTime,
+    });
+    url.search = queryParams.toString();
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      return { error: `Request failed with status ${response.status}` };
+    }
+
+    const data = (await response.json()) as UserDiffsResponse;
+    return { data };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Unknown error occurred",

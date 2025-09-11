@@ -121,7 +121,7 @@ const AccuracyTimeLineChart = ({
   // Calculate accuracy percentages for each time period
   const accuracyValues = labels.map((key) => {
     const stats = accuracyMap[key];
-    if (!stats || stats.total === 0) return null; // No data for this period
+    if (!stats || stats.total === 0) return 0; // Default to 0 instead of null for periods with no data
     return (stats.correct / stats.total) * 100;
   });
 
@@ -183,7 +183,7 @@ const AccuracyTimeLineChart = ({
                 pointBorderWidth: 2,
                 pointRadius: 6,
                 pointHoverRadius: 8,
-                spanGaps: true, // Connect line across null values
+                spanGaps: false, // Don't span gaps since we're using 0 values
               },
             ],
           }}
@@ -198,7 +198,7 @@ const AccuracyTimeLineChart = ({
                     const accuracy = context.parsed.y;
                     const total = totalValues[context.dataIndex];
 
-                    if (accuracy === null) return "No data";
+                    if (total === 0) return "No suggestions";
 
                     return `Accuracy: ${accuracy.toFixed(1)}% (${total} suggestions)`;
                   },

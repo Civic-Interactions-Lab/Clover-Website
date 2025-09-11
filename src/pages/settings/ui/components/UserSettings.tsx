@@ -19,13 +19,14 @@ const defaultSettings: UserSettingsType = {
   showNotifications: true,
   enableQuiz: true,
   mode: UserMode.CODE_BLOCK,
+  enableDashboard: false,
 };
 
 type UserSettingsProps = {
   user: User | User[] | null;
 };
 
-export const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
+export const UserSettings = ({ user }: UserSettingsProps) => {
   const isMulti = Array.isArray(user);
   const initialSettings: UserSettingsType = useMemo(() => {
     if (!user) return defaultSettings;
@@ -44,6 +45,9 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle"
   );
+  const [enableDashboard, setEnableDashboard] = useState(
+    initialSettings.enableDashboard
+  );
 
   useEffect(() => {
     setBugPercentage(initialSettings.bugPercentage);
@@ -59,6 +63,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
       showNotifications: showNotifications,
       enableQuiz: enableQuiz,
       mode: mode,
+      enableDashboard: enableDashboard,
     };
 
     try {

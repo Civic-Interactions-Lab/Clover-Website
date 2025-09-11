@@ -8,7 +8,14 @@ import {
 import { Button } from "../components/ui/button";
 import { Link } from "react-router-dom";
 import { CLOVER, Header, Paragraph, Title } from "../components/ui/text";
-import NavBar from "../components/NavBar";
+import {
+  ArrowRight,
+  Check,
+  Copy,
+  DownloadIcon,
+  ExternalLink,
+} from "lucide-react";
+import Footer from "@/components/Footer";
 
 /**
  * CopyButton component that allows users to copy text to the clipboard.
@@ -27,21 +34,18 @@ export const CopyButton = ({ text }: { text: string }) => {
   return (
     <button
       onClick={handleCopy}
-      className="px-2 py-1 text-sm bg-gray-400 dark:bg-gray-600 hover:bg-gray-500 dark:hover:bg-gray-700 rounded-md text-text transition-all"
+      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm 
+                 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 
+                 border border-gray-300 dark:border-gray-600 rounded-lg 
+                 text-gray-700 dark:text-gray-300 font-mono transition-all duration-200
+                 hover:scale-105 active:scale-95"
     >
-      <div className="inline-flex items-center">
-        {/* SVG Icon for Copy */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          height="24px"
-          viewBox="0 -960 960 960"
-          width="24px"
-          fill="#e3e3e3"
-        >
-          <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z" />
-        </svg>
-        {copied ? "Copied!" : text}
-      </div>
+      {copied ? (
+        <Check className="w-4 h-4 text-green-500" />
+      ) : (
+        <Copy className="w-4 h-4" />
+      )}
+      <span className="select-all">{copied ? "Copied!" : text}</span>
     </button>
   );
 };
@@ -52,88 +56,164 @@ export const CopyButton = ({ text }: { text: string }) => {
  * and options for installation from the VS Code, VS Code Marketplace or manual installation.
  * @returns {JSX.Element} The Download component.
  */
-export const Download = () => {
+const Download = () => {
   return (
-    <div className="flex-grow flex flex-col items-center justify-center width-container min-h-screen">
-      <NavBar />
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="w-full flex flex-col flex-grow items-center text-center px-6 mt-24 pb-12">
-        <Title>
-          Download <CLOVER />
-        </Title>
-        <Paragraph>
-          Get started with CLOVER, the AI-powered coding assistant for Visual
-          Studio Code. Choose the installation method that works best for you.
-        </Paragraph>
-
-        {/* Download Options */}
-        <Header>Download Options</Header>
-        <a
-          href="/getting-started"
-          className="mt-4 text-lg text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          Need help? View the full setup guide →
-        </a>
-
-        {/* VS Code Marketplace */}
-
-        <Card className="p-6 pb-2">
-          <CardTitle>Install for VS Code</CardTitle>
-          <CardContent>
-            <CardDescription>
-              Install CLOVER directly from the VS Code or the VS Code
-              Marketplace.
-            </CardDescription>
-            <div className="flex flex-col items-center gap-4 mt-4">
-              <Button className="bg-blue-400 dark:bg-blue-600 hover:bg-blue-500 dark:hover:bg-blue-700 hover:scale-105 text-white font-bold py-2 px-4 rounded transition-all">
-                <Link
-                  to="vscode:extension/capstone-team-2.temple-capstone-clover"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open in VS Code
-                </Link>
-              </Button>
-              <Button className="bg-blue-400 dark:bg-blue-600 hover:bg-blue-500 dark:hover:bg-blue-700 hover:scale-105 text-white font-bold py-2 px-4 rounded transition-all">
-                <Link
-                  to="https://marketplace.visualstudio.com/items?itemName=capstone-team-2.temple-capstone-clover"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open in VS Code Marketplace
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        {/* Manual Installation */}
-        {/* <div className="info-card p-6 rounded-2xl shadow-lg mt-6 w-full max-w-3xl">
-          <h3 className="text-xl font-bold text-text">Manual Installation</h3>
-          <p className="text-text mt-2">
-            If you prefer, you can download the VSIX file and install it
-            manually.
-          </p>
-          <a
-            href="https://api.nickrucinski.com/download"
-            download
-            className="mt-4 inline-block bg-green-400 dark:bg-green-500 hover:bg-green-500 dark:hover:bg-green-700 hover:scale-105 text-white font-bold py-2 px-4 rounded transition-all"
-          >
-            Download VSIX File
-          </a>
-          <div className="p-2 rounded-lg">
-            <p className="text-text mt-2">
-              After downloading, you can run{" "}
-              <CopyButton text={"code --install-extension clover.vsix"} /> in
-              the your terminal where the file is located to install the
-              extension.
-            </p>
+      <section className="container mx-auto px-6 pt-32 pb-20">
+        <div className="text-center max-w-4xl mx-auto">
+          {/* Hero Content */}
+          <div className="mb-12">
+            <Title
+              className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-[#50B498] to-[#F59E0B] 
+                           bg-clip-text text-transparent mb-6"
+            >
+              Download <CLOVER />
+            </Title>
+            <Paragraph className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+              Get started with CLOVER, the AI-powered coding assistant for
+              Visual Studio Code. Choose the installation method that works best
+              for you.
+            </Paragraph>
           </div>
-        </div> */}
+
+          {/* Getting Started Link */}
+          <div className="mb-16">
+            <a
+              href="/getting-started"
+              className="inline-flex items-center gap-2 px-6 py-3 
+                         text-[#50B498] dark:text-[#9CDBA6] hover:text-[#3a8a73] dark:hover:text-[#50B498]
+                         bg-[#50B498]/10 dark:bg-[#50B498]/20 hover:bg-[#50B498]/20 dark:hover:bg-[#50B498]/30
+                         border border-[#50B498]/30 dark:border-[#50B498]/50 rounded-xl
+                         transition-all duration-200 hover:scale-105 font-medium"
+            >
+              <span>Need help? View the full setup guide</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Download Options */}
+          <div className="mb-12">
+            <Header className="text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+              Download Options
+            </Header>
+            <div className="w-24 h-1 bg-gradient-to-r from-[#50B498] to-[#F59E0B] rounded-full mx-auto"></div>
+          </div>
+
+          {/* Installation Cards */}
+          <div className="grid gap-8 max-w-4xl mx-auto">
+            {/* VS Code Installation Card */}
+            <Card
+              className="relative overflow-hidden border-0 shadow-xl 
+                           bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm
+                           hover:shadow-2xl transition-all duration-300 hover:scale-105"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#50B498]/5 to-[#F59E0B]/5"></div>
+              <div className="relative p-8">
+                <div
+                  className="flex items-center justify-center w-16 h-16 mx-auto mb-6
+                               bg-gradient-to-r from-[#50B498] to-[#9CDBA6] rounded-2xl"
+                >
+                  <DownloadIcon className="w-8 h-8 text-white" />
+                </div>
+
+                <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Install for VS Code
+                </CardTitle>
+
+                <CardContent className="space-y-6">
+                  <CardDescription className="text-lg text-gray-600 dark:text-gray-300">
+                    Install CLOVER directly from VS Code or the VS Code
+                    Marketplace.
+                  </CardDescription>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
+                    <Button
+                      className="w-full sm:w-auto bg-gradient-to-r from-[#50B498] to-[#9CDBA6] 
+                                     hover:from-[#3a8a73] hover:to-[#50B498] 
+                                     text-white font-semibold py-3 px-8 rounded-xl
+                                     transition-all duration-200 hover:scale-105 hover:shadow-lg
+                                     border-0"
+                    >
+                      <Link
+                        to="vscode:extension/capstone-team-2.temple-capstone-clover"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        <span>Open in VS Code</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </Link>
+                    </Button>
+
+                    <Button
+                      className="w-full sm:w-auto bg-gradient-to-r from-[#F59E0B] to-[#F59E0B] 
+                                     hover:from-[#d97706] hover:to-[#d97706] 
+                                     text-white font-semibold py-3 px-8 rounded-xl
+                                     transition-all duration-200 hover:scale-105 hover:shadow-lg
+                                     border-0"
+                    >
+                      <Link
+                        to="https://marketplace.visualstudio.com/items?itemName=capstone-team-2.temple-capstone-clover"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        <span>VS Code Marketplace</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </div>
+            </Card>
+
+            {/* Manual Installation Card */}
+            <Card
+              className="relative overflow-hidden border-0 shadow-xl 
+                           bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm
+                           hover:shadow-2xl transition-all duration-300 hover:scale-105
+                           opacity-50"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#9CDBA6]/5 to-[#50B498]/5"></div>
+              <div className="relative p-8">
+                <div
+                  className="flex items-center justify-center w-16 h-16 mx-auto mb-6
+                               bg-gradient-to-r from-[#9CDBA6] to-[#50B498] rounded-2xl"
+                >
+                  <DownloadIcon className="w-8 h-8 text-white" />
+                </div>
+
+                <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Manual Installation
+                </CardTitle>
+
+                <CardContent className="space-y-6">
+                  <CardDescription className="text-lg text-gray-600 dark:text-gray-300">
+                    Download the VSIX file and install it manually in VS Code.
+                  </CardDescription>
+
+                  <div className="text-center">
+                    <span
+                      className="inline-block px-4 py-2 bg-gray-100 dark:bg-gray-700 
+                                   text-gray-500 dark:text-gray-400 rounded-lg text-sm font-medium"
+                    >
+                      Coming Soon
+                    </span>
+                  </div>
+
+                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      After downloading, install using:
+                    </p>
+                    <CopyButton text="code --install-extension clover.vsix" />
+                  </div>
+                </CardContent>
+              </div>
+            </Card>
+          </div>
+        </div>
       </section>
-      <footer className="py-6 text-center text-sm">
-        <p>© 2025 CLOVER</p>
-        <p className="text-primary">TEAM 2</p>
-      </footer>
     </div>
   );
 };

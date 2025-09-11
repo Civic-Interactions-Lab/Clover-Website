@@ -6,6 +6,7 @@ interface UserContextType {
   loading: boolean;
   error: string | null;
   refetchUser: () => void;
+  isPasswordRecovery?: boolean;
 }
 
 export const UserContext = createContext<UserContextType | null>(null);

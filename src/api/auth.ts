@@ -14,7 +14,8 @@ export async function registerUser(
   firstName: string,
   lastName: string,
   email: string,
-  password: string
+  password: string,
+  isConsent?: boolean
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     const response = await fetch(`${AUTH_ENDPOINT}/signup`, {
@@ -27,6 +28,7 @@ export async function registerUser(
         password,
         firstName,
         lastName,
+        isConsent,
       }),
     });
 

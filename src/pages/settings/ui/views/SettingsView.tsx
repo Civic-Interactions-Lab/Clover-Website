@@ -1,4 +1,3 @@
-import { EditUserButton } from "@/components/EditUserButton";
 import NavBar from "@/components/NavBar";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Title } from "@/components/ui/text";
@@ -7,6 +6,7 @@ import { UserRole } from "@/types/user";
 import UserSettings from "../components/UserSettings";
 import { DeleteUserButton } from "@/components/DeleteUserButton";
 import { ResetPasswordButton } from "@/components/ResetPasswordButton";
+import EditUserButton from "@/components/EditUserButton";
 
 /**
  * Settings component that displays user settings and activity.

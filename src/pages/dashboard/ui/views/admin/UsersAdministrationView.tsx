@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import UsersDataTable from "../../components/UserDataTable";
+import DataDownload from "@/components/DataDownload";
 
 const UsersAdministrationView = () => {
   return (

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ChevronUp, ChevronDown, Plus, Minus } from "lucide-react";
 import InstallFromVSIX from "../assets/InstallFromVSIX.gif";
 import { Card } from "../components/ui/card";
-import NavBar from "../components/NavBar";
 
 // List of sections and subsections
 const sections = [
@@ -315,7 +314,6 @@ export const Help = () => {
 
   return (
     <div>
-      <NavBar />
       <div className="pt-16 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 width-container">
         <SideBar
           openSections={openSections}

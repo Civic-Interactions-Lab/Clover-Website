@@ -114,7 +114,7 @@ export const ConstructionRoute = (): JSX.Element => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/early-access" replace />;
   }
 
   return <Outlet />;

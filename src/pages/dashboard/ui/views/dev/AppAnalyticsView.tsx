@@ -1,4 +1,5 @@
 import { AIStatGraph } from "@/components/AIStatGraph";
+import DataDownload from "@/components/DataDownload";
 import { useAIStats } from "@/hooks/useAIStats";
 import {
   Chart as ChartJS,
@@ -34,6 +35,8 @@ export const AppAnalyticsView = () => {
       <div className="w-full mb-6 text-text">
         <AIStatGraph aiStats={aiStats} />
       </div>
+
+      <DataDownload />
     </div>
   );
 };

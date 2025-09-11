@@ -25,6 +25,11 @@ import LogInView from "./pages/auth/ui/views/LogInView";
 import AnonymousLoginView from "./pages/auth/ui/views/AnonymousLoginView";
 import Construction from "./pages/Construction";
 import { ConstructionRoute, EarlyAccessProvider } from "./hooks/useEarlyAccess";
+import { PublicLayout } from "./pages/PublicLayout";
+import UserDetailsView from "./pages/dashboard/ui/views/admin/UserDetailsView";
+import CreateEditConsentView from "./pages/dashboard/ui/views/admin/CreateEditConsentView";
+import SuggestionDetailsView from "./pages/dashboard/ui/views/student/SuggestionDetailsView";
+import UserEditsViewer from "./pages/dashboard/ui/views/admin/UserEditsViewer";
 
 const queryClient = new QueryClient();
 
@@ -61,7 +66,16 @@ const App = (): JSX.Element => {
                 <Route element={<ConstructionRoute />}>
                   {/* Auth Routes */}
                   <Route element={<ProtectedRoute />}>
-                    <Route path="/dashboard/*" element={<Dashboard />} />
+                    <Route path="/dashboard/*" element={<Dashboard />}>
+                      <Route
+                        path="users/:userId"
+                        element={<UserDetailsView />}
+                      />
+                      <Route
+                        path="users/:userId/edits"
+                        element={<UserEditsViewer />}
+                      />
+                    </Route>
                     <Route path="/quiz" element={<QuizPage />} />
                     <Route path="/settings" element={<SettingsView />} />
                     <Route path="/profile" element={<Profile />} />
@@ -77,21 +91,34 @@ const App = (): JSX.Element => {
                       path="/classes/create"
                       element={<ClassCreateEditView />}
                     />
+
+                    <Route
+                      path="/suggestion-details"
+                      element={<SuggestionDetailsView />}
+                    />
                   </Route>
                   {/* Public Routes */}
-                  <Route path="/home" element={<Landing />} />
-                  <Route path="/login" element={<LogInView />} />
-                  <Route path="/signup" element={<SignUpView />} />
-                  <Route path="/anonymous" element={<AnonymousLoginView />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/download" element={<Download />} />
-                  <Route path="/getting-started" element={<Help />} />
-                  <Route path="/passwordreset" element={<Reset />} />
+
+                  <Route path="/" element={<PublicLayout />}>
+                    <Route index element={<Landing />} />
+                    <Route path="home" element={<Landing />} />
+                    <Route path="about" element={<About />} />
+                    <Route path="download" element={<Download />} />
+                    <Route path="/login" element={<LogInView />} />
+                    <Route path="/signup" element={<SignUpView />} />
+                    <Route path="/anonymous" element={<AnonymousLoginView />} />
+                    <Route path="/getting-started" element={<Help />} />
+                    <Route path="/passwordreset" element={<Reset />} />
+                    <Route
+                      path="/consent"
+                      element={<CreateEditConsentView />}
+                    />
+                  </Route>
                 </Route>
-                <Route path="/" element={<Construction />} />
+                <Route path="/resetform" element={<PasswordCallback />} />
                 <Route path="/auth" element={<AuthCallback />} />
                 <Route path="/auth/vscode" element={<VSCodeAuthCallback />} />
-                <Route path="/resetform" element={<PasswordCallback />} />
+                <Route path="/early-access" element={<Construction />} />
               </Route>
             </Routes>
           </main>

@@ -39,7 +39,7 @@ function NavUser({ isMobile }: NavUserProps) {
           <UserInfoItem
             firstName={user.firstName}
             lastName={user.lastName}
-            email={user.email}
+            pid={user.pid}
             avatarUrl={user.avatarUrl}
             className="w-full bg-transparent"
           />
@@ -56,7 +56,7 @@ function NavUser({ isMobile }: NavUserProps) {
             <UserInfoItem
               firstName={user.firstName}
               lastName={user.lastName}
-              email={user.email}
+              pid={user.pid}
               avatarUrl={user.avatarUrl}
               size="sm"
               className="w-full bg-transparent"
@@ -68,9 +68,6 @@ function NavUser({ isMobile }: NavUserProps) {
           <DropdownMenuItem onClick={() => navigate("/profile")}>
             Profile <User2Icon className="w-4 h-4 ml-auto" />
           </DropdownMenuItem>
-          {/* <DropdownMenuItem onClick={() => navigate("/settings")}>
-            Settings
-          </DropdownMenuItem> */}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem

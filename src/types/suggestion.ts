@@ -3,6 +3,7 @@ export interface BaseSuggestion {
   createdAt: string;
   prompt: string;
   hasBug: boolean;
+  shownBug?: boolean;
   duration: number;
   model: string;
   vendor: string;
@@ -17,9 +18,13 @@ export interface CodeBlockSuggestion extends BaseSuggestion {
 }
 
 export interface LineByLineSuggestion extends BaseSuggestion {
-  mainLine?: string;
-  fixedLine?: string;
-  lineIndex: number;
+  correctLine?: string;
+  incorrectLine?: string;
+  shownBug: boolean;
+  suggestions: Array<{
+    correctLine: string;
+    incorrectLine: string;
+  }>;
 }
 
 export interface CodeSelectionSuggestion extends BaseSuggestion {
@@ -51,6 +56,7 @@ export interface BlockSuggestionLogResponse extends BaseLogResponse {
 
 export interface LineSuggestionLogResponse extends BaseLogResponse {
   lineSuggestionId: string;
+  suggestions: LineByLineSuggestion;
 }
 
 export interface SelectionSuggestionLogResponse extends BaseLogResponse {

@@ -9,6 +9,7 @@ import {
   Settings,
   BarChart3,
   ClipboardPenIcon,
+  BugIcon,
 } from "lucide-react";
 import { UserRole } from "../types/user";
 import { ComponentType } from "react";
@@ -23,6 +24,7 @@ import UsersAdministrationView from "@/pages/dashboard/ui/views/admin/UsersAdmin
 import ClassesAdministrationView from "@/pages/dashboard/ui/views/admin/ClassesAdministrationView";
 import AppAnalyticsView from "@/pages/dashboard/ui/views/dev/AppAnalyticsView";
 import StudentQuizView from "@/pages/dashboard/ui/views/student/StudentQuizView";
+import ErrorAnalyticsView from "@/pages/dashboard/ui/views/dev/ErrorAnalyticsView";
 
 export type SideBarItem = {
   id: string;
@@ -119,6 +121,7 @@ export const sidebarItems: SideBarItem[] = [
     name: "Class Statistics",
     title: "Student Performance Analytics",
     subheading: "Teaching",
+    description: "Track and analyze student performance and progress.",
     roles: INSTRUCTOR,
     dashboardView: InstructorStatsView,
   },
@@ -172,5 +175,15 @@ export const sidebarItems: SideBarItem[] = [
     subheading: "Development",
     roles: DEV,
     dashboardView: AppAnalyticsView,
+  },
+  {
+    id: "error-stats",
+    icon: BugIcon,
+    name: "Error Stats",
+    title: "Error Statistics",
+    subheading: "Development",
+    description: "Monitor and manage application errors with ease.",
+    roles: DEV,
+    dashboardView: ErrorAnalyticsView,
   },
 ];

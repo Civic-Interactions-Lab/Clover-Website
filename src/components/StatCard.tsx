@@ -4,7 +4,9 @@ import { Card } from "./ui/card";
 interface StatCardProps {
   title: string;
   value: string | number;
+  subtitle?: string;
   tooltipContent?: string | React.ReactNode;
+  textSize?: string;
 }
 
 /**
@@ -15,16 +17,25 @@ interface StatCardProps {
  * @param {string | number} props.value - The value to be displayed in the stat card.
  * @returns
  */
-const StatCard = ({ title, value, tooltipContent }: StatCardProps) => {
+const StatCard = ({
+  title,
+  value,
+  subtitle,
+  tooltipContent,
+  textSize = "text-xl",
+}: StatCardProps) => {
   return (
     <Card className="w-full h-full p-4 flex flex-col gap-1">
       <CustomTooltip
-        trigger={<p className="text-2xl font-bold text-primary">{title}</p>}
+        trigger={
+          <p className={`font-bold text-primary ${textSize}`}>{title}</p>
+        }
         align="start"
       >
         {tooltipContent}
       </CustomTooltip>
       <p className="text-2xl font-bold text-text">{value}</p>
+      {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
     </Card>
   );
 };
