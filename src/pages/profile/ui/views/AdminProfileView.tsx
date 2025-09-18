@@ -9,6 +9,8 @@ import EditUserButton from "@/components/EditUserButton";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import ActivityStatsCards from "../components/ActivityStatsCards";
+import { useState } from "react";
+import NewSurveyDialog from "@/pages/dashboard/ui/components/NewSurveyDialog";
 
 interface AdminProfileViewProps {
   userData: User;
@@ -17,54 +19,93 @@ interface AdminProfileViewProps {
 const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
   const navigate = useNavigate();
 
+  const [showNewSurveyDialog, setShowNewSurveyDialog] = useState(false);
+
+  const handleSurveyCreated = (surveyId: string) => {
+    navigate(`/survey/${surveyId}`);
+  };
+
   return (
-    <div className="w-full max-w-7xl mx-auto p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Sidebar - Basic Profile Info */}
-        <div className=" lg:col-span-1 space-y-6">
-          <div className="grid md:grid-cols-3 lg:grid-cols-1 gap-6">
-            <Card className="p-6">
-              <div className="flex flex-col items-center space-y-4">
-                <UserAvatar
-                  firstName={userData.firstName}
-                  avatarUrl={userData.avatarUrl}
-                  size="xl"
-                />
-                <div className="text-center space-y-2">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {userData.firstName} {userData.lastName}{" "}
-                  </h2>
+    <>
+      <NewSurveyDialog
+        open={showNewSurveyDialog}
+        onOpenChange={setShowNewSurveyDialog}
+        onSurveyCreated={handleSurveyCreated}
+      />
 
-                  <p className="text-muted-foreground text-sm">
-                    pid: {userData.pid}
-                  </p>
+      <div className="w-full max-w-7xl mx-auto p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Sidebar - Basic Profile Info */}
+          <div className=" lg:col-span-1 space-y-6">
+            <div className="grid md:grid-cols-3 lg:grid-cols-1 gap-6">
+              <Card className="p-6">
+                <div className="flex flex-col items-center space-y-4">
+                  <UserAvatar
+                    firstName={userData.firstName}
+                    avatarUrl={userData.avatarUrl}
+                    size="xl"
+                  />
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      {userData.firstName} {userData.lastName}{" "}
+                    </h2>
 
-                  <div className="flex flex-row items-center gap-2">
-                    <RoleBadge role={userData.role} />
-                    <StatusBadge status={userData.status} />
+                    <p className="text-muted-foreground text-sm">
+                      pid: {userData.pid}
+                    </p>
+
+                    <div className="flex flex-row items-center gap-2">
+                      <RoleBadge role={userData.role} />
+                      <StatusBadge status={userData.status} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Card>
 
-              <div className="mt-4 flex justify-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/consent")}
-                >
-                  View Consent Form
-                </Button>
-              </div>
-            </Card>
+              {/* Basic Information */}
+              <Card className="py-3 col-span-2 hidden md:block lg:hidden">
+                <div className="flex items-center justify-between pr-4">
+                  <InfoCardTitle title="Details" icon={UserIcon} />
 
+                  <EditUserButton user={userData} />
+                </div>
+                <CardContent className="flex flex-col gap-4">
+                  <InfoField
+                    label="Email"
+                    value={
+                      userData.email.includes("@anonymous.com")
+                        ? "Anonymous"
+                        : userData.email
+                    }
+                    icon={Mail}
+                  />
+                  <InfoField
+                    label="Joined"
+                    value={new Date(userData.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
+                    icon={Calendar}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Right Content - Detailed Information */}
+          <div className="lg:col-span-3 gap-y-6 flex flex-col">
             {/* Basic Information */}
-            <Card className="py-3 col-span-2 hidden md:block lg:hidden">
+            <Card className="py-3 md:hidden lg:block">
               <div className="flex items-center justify-between pr-4">
                 <InfoCardTitle title="Details" icon={UserIcon} />
 
                 <EditUserButton user={userData} />
               </div>
-              <CardContent className="flex flex-col gap-4">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <InfoField
                   label="Email"
                   value={
@@ -88,47 +129,22 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                 />
               </CardContent>
             </Card>
+
+            <div className="mt-4 flex items-center justify-between">
+              <Button size="sm" onClick={() => navigate("/consent")}>
+                View Consent Form
+              </Button>
+
+              <Button size="sm" onClick={() => setShowNewSurveyDialog(true)}>
+                Create Survey
+              </Button>
+            </div>
+
+            <ActivityStatsCards user={userData} />
           </div>
         </div>
-
-        {/* Right Content - Detailed Information */}
-        <div className="lg:col-span-3 gap-y-6 flex flex-col">
-          {/* Basic Information */}
-          <Card className="py-3 md:hidden lg:block">
-            <div className="flex items-center justify-between pr-4">
-              <InfoCardTitle title="Details" icon={UserIcon} />
-
-              <EditUserButton user={userData} />
-            </div>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InfoField
-                label="Email"
-                value={
-                  userData.email.includes("@anonymous.com")
-                    ? "Anonymous"
-                    : userData.email
-                }
-                icon={Mail}
-              />
-              <InfoField
-                label="Joined"
-                value={new Date(userData.createdAt).toLocaleDateString(
-                  "en-US",
-                  {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  }
-                )}
-                icon={Calendar}
-              />
-            </CardContent>
-          </Card>
-
-          <ActivityStatsCards user={userData} />
-        </div>
       </div>
-    </div>
+    </>
   );
 };
 
