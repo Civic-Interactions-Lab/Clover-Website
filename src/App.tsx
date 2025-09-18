@@ -29,6 +29,7 @@ import { PublicLayout } from "./pages/PublicLayout";
 import UserDetailsView from "./pages/dashboard/ui/views/admin/UserDetailsView";
 import CreateEditConsentView from "./pages/dashboard/ui/views/admin/CreateEditConsentView";
 import SuggestionDetailsView from "./pages/dashboard/ui/views/student/SuggestionDetailsView";
+import PreSurveyView from "./pages/PreSurveyView";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,7 @@ const App = (): JSX.Element => {
                 <Route path="/auth" element={<AuthCallback />} />
                 <Route path="/auth/vscode" element={<VSCodeAuthCallback />} />
                 <Route path="/early-access" element={<Construction />} />
+                <Route path="/pre-survey" element={<PreSurveyView />} />
               </Route>
             </Routes>
           </main>
