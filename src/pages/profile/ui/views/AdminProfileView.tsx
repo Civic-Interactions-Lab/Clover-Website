@@ -296,7 +296,7 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                           disabled={!selectedSurveyId}
                           variant={`${selectedSurveyId ? "default" : "outline"}`}
                           size="sm"
-                          className="w-full sm:w-32 shrink-0"
+                          className="w-full sm:w-32 shrink-0 mb-auto"
                         >
                           <Edit className="h-4 w-4 mr-2" />
                           Edit Survey
