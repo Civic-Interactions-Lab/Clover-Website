@@ -62,8 +62,6 @@ export const NavBar = () => {
     { to: "/about", label: "About" },
   ];
 
-  if (!userData) return null;
-
   return (
     <nav
       className={`

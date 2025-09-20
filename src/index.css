@@ -77,6 +77,81 @@ Soft Gray:
   }
 }
 
+@layer components {
+.diff-viewer {
+    @apply border border-border rounded-md bg-muted/30;
+  }
+  .diff-gutter {
+    @apply text-muted-foreground;
+  }
+
+  .dark .diff-viewer {
+    @apply bg-muted/30 border-border;
+  }
+
+  .dark .diff-gutter {
+    @apply bg-muted/50 text-muted-foreground border-r-border;
+  }
+  
+  .dark .diff-code-insert {
+    @apply bg-green-500/10;
+  }
+
+  .dark .diff-code-delete {
+    @apply bg-red-500/10;
+  }
+
+  .dark .diff-hunk-header {
+    @apply bg-muted/70 text-muted-foreground border-b-border;
+  }
+}
+
+.dark .diff-viewer {
+  background-color: hsl(var(--muted) / 0.3);
+  border-color: hsl(var(--border));
+}
+
+/* Gutter (line numbers) styling */
+.dark .diff-gutter {
+  background-color: hsl(var(--muted) / 0.4);
+  color: hsl(var(--muted-foreground));
+  border-right-color: hsl(var(--border));
+}
+
+.dark .diff-gutter-add {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.dark .diff-gutter-delete {
+  background-color: hsl(var(--destructive) / 0.1);
+}
+
+/* Code content styling */
+.dark .diff-code {
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.dark .diff-code-add {
+  background-color: hsl(var(--primary) / 0.15);
+}
+
+.dark .diff-code-delete {
+  background-color: hsl(var(--destructive) / 0.15);
+}
+
+/* Hunk header (the "@@ -1,1 +1,1 @@" part) styling */
+.dark .diff-hunk-header {
+  background-color: hsl(var(--muted) / 0.6);
+  color: hsl(var(--muted-foreground));
+  border-bottom-color: hsl(var(--border));
+}
+
+/* Empty placeholder styling */
+.dark .diff-code-empty {
+  background-color: hsl(var(--muted) / 0.2);
+}
+
+
 @layer base {
   * {
     @apply border-border;
