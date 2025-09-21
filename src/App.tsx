@@ -29,6 +29,8 @@ import { PublicLayout } from "./pages/PublicLayout";
 import UserDetailsView from "./pages/dashboard/ui/views/admin/UserDetailsView";
 import CreateEditConsentView from "./pages/dashboard/ui/views/admin/CreateEditConsentView";
 import SuggestionDetailsView from "./pages/dashboard/ui/views/student/SuggestionDetailsView";
+import SurveyView from "./pages/SurveyView";
+import CreateEditSurveyView from "./pages/dashboard/ui/views/admin/CreateEditSurveyView";
 import UserEditsViewer from "./pages/dashboard/ui/views/admin/UserEditsViewer";
 
 const queryClient = new QueryClient();
@@ -96,6 +98,14 @@ const App = (): JSX.Element => {
                       path="/suggestion-details"
                       element={<SuggestionDetailsView />}
                     />
+                    <Route
+                      path="/consent"
+                      element={<CreateEditConsentView />}
+                    />
+                    <Route
+                      path="/survey/:surveyId"
+                      element={<CreateEditSurveyView />}
+                    />
                   </Route>
                   {/* Public Routes */}
 
@@ -109,16 +119,13 @@ const App = (): JSX.Element => {
                     <Route path="/anonymous" element={<AnonymousLoginView />} />
                     <Route path="/getting-started" element={<Help />} />
                     <Route path="/passwordreset" element={<Reset />} />
-                    <Route
-                      path="/consent"
-                      element={<CreateEditConsentView />}
-                    />
                   </Route>
                 </Route>
                 <Route path="/resetform" element={<PasswordCallback />} />
                 <Route path="/auth" element={<AuthCallback />} />
                 <Route path="/auth/vscode" element={<VSCodeAuthCallback />} />
                 <Route path="/early-access" element={<Construction />} />
+                <Route path="/survey" element={<SurveyView />} />
               </Route>
             </Routes>
           </main>

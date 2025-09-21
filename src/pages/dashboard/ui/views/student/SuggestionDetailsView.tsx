@@ -204,14 +204,16 @@ const SuggestionDetailsView = () => {
         case "LINE_BY_LINE": {
           const lineSuggestion = suggestionDetail as LineByLineSuggestion;
 
-          // Build the complete correct code block from all suggestions
           const correctCodeBlock = lineSuggestion.suggestions
             .map((suggestion) => suggestion.correctLine)
             .join("\n");
 
           const incorrectCodeBlock = lineSuggestion.suggestions
-            .map((suggestion) => {
-              if (suggestion.incorrectLine === lineSuggestion.incorrectLine) {
+            .map((suggestion, index) => {
+              if (
+                index === lineSuggestion.lineIndex &&
+                lineSuggestion.incorrectLine
+              ) {
                 return lineSuggestion.incorrectLine;
               }
               return suggestion.correctLine;
@@ -223,7 +225,7 @@ const SuggestionDetailsView = () => {
               oldCode={incorrectCodeBlock}
               newCode={correctCodeBlock}
               oldTitle="Code with Bug"
-              newTitle="Corrected Code"
+              newTitle="Code without Bug"
               language={suggestionDetail.language || "javascript"}
             />
           );
