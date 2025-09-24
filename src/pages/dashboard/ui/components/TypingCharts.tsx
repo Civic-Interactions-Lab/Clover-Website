@@ -21,6 +21,17 @@ interface IntervalTypeOption {
   maxCount: number;
 }
 
+interface TypingLogEntry {
+  id: string;
+  userId: string;
+  typedNumber: number;
+  acceptedNumber: number;
+  suggestionId?: string;
+  suggestionLineId?: string;
+  suggestionSelectionItemId?: string;
+  createdAt: string;
+}
+
 const intervalTypeOptions: IntervalTypeOption[] = [
   { value: "hours", label: "Hours", maxCount: 24 },
   { value: "days", label: "Days", maxCount: 30 },
@@ -117,7 +128,11 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
 
     const now = new Date();
     const timeGroups: {
-      [key: string]: { typed: number; accepted: number; duration: number };
+      [key: string]: {
+        typed: number;
+        accepted: number;
+        logs: TypingLogEntry[];
+      };
     } = {};
 
     // Initialize time periods
@@ -144,10 +159,10 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
           continue;
       }
 
-      timeGroups[label] = { typed: 0, accepted: 0, duration: 0 };
+      timeGroups[label] = { typed: 0, accepted: 0, logs: [] };
     }
 
-    // Process logs
+    // Process logs - store logs for each time group
     typingData.logs.forEach((log) => {
       const logDate = new Date(log.createdAt);
       let label: string;
@@ -172,8 +187,7 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
       if (timeGroups[label]) {
         timeGroups[label].typed += log.typedNumber;
         timeGroups[label].accepted += log.acceptedNumber;
-        timeGroups[label].duration =
-          selectedIntervalType === "hours" ? 60 : 1440; // minutes
+        timeGroups[label].logs.push(log);
       }
     });
 
@@ -191,27 +205,121 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
         break;
 
       case "rate-minute":
-        // Rate per minute
+        // Rate per minute using actual time span
         typedData = labels.map((label) => {
-          const duration = timeGroups[label].duration || 1;
-          return Number((timeGroups[label].typed / duration).toFixed(2));
+          const group = timeGroups[label];
+          if (group.typed === 0 || group.logs.length === 0) {
+            return 0;
+          }
+
+          if (group.logs.length === 1) {
+            // If only one log entry, assume 1 minute minimum
+            return Number(group.typed.toFixed(2));
+          }
+
+          // Sort logs by createdAt to get first and last
+          const sortedLogs = group.logs.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+
+          const firstLog = sortedLogs[0];
+          const lastLog = sortedLogs[sortedLogs.length - 1];
+
+          const durationMs =
+            new Date(lastLog.createdAt).getTime() -
+            new Date(firstLog.createdAt).getTime();
+          const durationMinutes = Math.max(durationMs / (1000 * 60), 1); // At least 1 minute
+
+          return Number((group.typed / durationMinutes).toFixed(2));
         });
+
         acceptedData = labels.map((label) => {
-          const duration = timeGroups[label].duration || 1;
-          return Number((timeGroups[label].accepted / duration).toFixed(2));
+          const group = timeGroups[label];
+          if (group.accepted === 0 || group.logs.length === 0) {
+            return 0;
+          }
+
+          if (group.logs.length === 1) {
+            // If only one log entry, assume 1 minute minimum
+            return Number(group.accepted.toFixed(2));
+          }
+
+          // Sort logs by createdAt to get first and last
+          const sortedLogs = group.logs.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+
+          const firstLog = sortedLogs[0];
+          const lastLog = sortedLogs[sortedLogs.length - 1];
+
+          const durationMs =
+            new Date(lastLog.createdAt).getTime() -
+            new Date(firstLog.createdAt).getTime();
+          const durationMinutes = Math.max(durationMs / (1000 * 60), 1); // At least 1 minute
+
+          return Number((group.accepted / durationMinutes).toFixed(2));
         });
         break;
 
       case "rate-hour":
-        // Rate per hour
+        // Rate per hour using actual time span
         typedData = labels.map((label) => {
-          const duration = timeGroups[label].duration || 1;
-          const hourlyRate = (timeGroups[label].typed / duration) * 60;
+          const group = timeGroups[label];
+          if (group.typed === 0 || group.logs.length === 0) {
+            return 0;
+          }
+
+          if (group.logs.length === 1) {
+            // If only one log entry, assume 1 minute and calculate hourly rate
+            return Number((group.typed * 60).toFixed(0));
+          }
+
+          // Sort logs by createdAt to get first and last
+          const sortedLogs = group.logs.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+
+          const firstLog = sortedLogs[0];
+          const lastLog = sortedLogs[sortedLogs.length - 1];
+
+          const durationMs =
+            new Date(lastLog.createdAt).getTime() -
+            new Date(firstLog.createdAt).getTime();
+          const durationMinutes = Math.max(durationMs / (1000 * 60), 1); // At least 1 minute
+          const hourlyRate = (group.typed / durationMinutes) * 60;
+
           return Number(hourlyRate.toFixed(0));
         });
+
         acceptedData = labels.map((label) => {
-          const duration = timeGroups[label].duration || 1;
-          const hourlyRate = (timeGroups[label].accepted / duration) * 60;
+          const group = timeGroups[label];
+          if (group.accepted === 0 || group.logs.length === 0) {
+            return 0;
+          }
+
+          if (group.logs.length === 1) {
+            // If only one log entry, assume 1 minute and calculate hourly rate
+            return Number((group.accepted * 60).toFixed(0));
+          }
+
+          // Sort logs by createdAt to get first and last
+          const sortedLogs = group.logs.sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+
+          const firstLog = sortedLogs[0];
+          const lastLog = sortedLogs[sortedLogs.length - 1];
+
+          const durationMs =
+            new Date(lastLog.createdAt).getTime() -
+            new Date(firstLog.createdAt).getTime();
+          const durationMinutes = Math.max(durationMs / (1000 * 60), 1); // At least 1 minute
+          const hourlyRate = (group.accepted / durationMinutes) * 60;
+
           return Number(hourlyRate.toFixed(0));
         });
         break;
@@ -539,9 +647,9 @@ const TypingCharts = ({ userId, mode }: TypingChartsProps) => {
                 {viewMode === "total" &&
                   "Shows total characters typed and characters accepted from AI over time."}
                 {viewMode === "rate-minute" &&
-                  "Shows typing and acceptance rate per minute over time."}
+                  "Shows typing and acceptance rate per minute based on actual activity duration within each time period."}
                 {viewMode === "rate-hour" &&
-                  "Shows typing and acceptance rate per hour over time."}
+                  "Shows typing and acceptance rate per hour based on actual activity duration within each time period."}
                 {viewMode === "efficiency" &&
                   "Shows the percentage efficiency of AI usage over time (stacked to 100%)."}
               </p>

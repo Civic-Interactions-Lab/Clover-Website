@@ -3,6 +3,14 @@ import { Line } from "react-chartjs-2";
 import { CustomTooltip } from "@/components/CustomTooltip";
 import { Card } from "@/components/ui/card";
 import { UserActivityLogItem } from "@/types/suggestion";
+import CustomSelect from "@/components/CustomSelect";
+import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
+
+enum EventFilter {
+  TOTAL = "Total",
+  ACCEPT = "Accept",
+  REJECT = "Reject",
+}
 
 interface LearningProgressProps {
   userActivity: UserActivityLogItem[];
@@ -15,6 +23,9 @@ const LearningProgressChart = ({
   windowSize = 20,
   title = "Learning Progress",
 }: LearningProgressProps) => {
+  const [eventFilter, setEventFilter] = useState<EventFilter>(
+    EventFilter.TOTAL
+  );
   const [textColor, setTextColor] = useState("#000000");
   const [gridColor, setGridColor] = useState("rgba(255,255,255,0.1)");
 
@@ -39,7 +50,26 @@ const LearningProgressChart = ({
   const chartData = useMemo(() => {
     if (!userActivity.length) return { labels: [], data: [] };
 
-    const sortedActivity = [...userActivity].sort(
+    // Filter activities based on event filter
+    const filteredActivity = userActivity.filter((activity) => {
+      const isAcceptEvent = ACCEPT_EVENTS.includes(activity.event);
+      const isRejectEvent = REJECT_EVENTS.includes(activity.event);
+
+      switch (eventFilter) {
+        case EventFilter.ACCEPT:
+          return isAcceptEvent;
+        case EventFilter.REJECT:
+          return isRejectEvent;
+        case EventFilter.TOTAL:
+          return isAcceptEvent || isRejectEvent;
+        default:
+          return false;
+      }
+    });
+
+    if (!filteredActivity.length) return { labels: [], data: [] };
+
+    const sortedActivity = [...filteredActivity].sort(
       (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
@@ -51,7 +81,23 @@ const LearningProgressChart = ({
       const startIndex = Math.max(0, index - windowSize + 1);
       const windowLogs = sortedActivity.slice(startIndex, index + 1);
 
-      const correct = windowLogs.filter((l) => l.hasBug === false).length;
+      // Calculate accuracy based on correct decisions for the filtered event type
+      let correct = 0;
+
+      windowLogs.forEach((log) => {
+        const isAcceptEvent = ACCEPT_EVENTS.includes(log.event);
+        const isRejectEvent = REJECT_EVENTS.includes(log.event);
+
+        // Determine if this was a correct decision
+        const isCorrectDecision =
+          (isAcceptEvent && !log.hasBug) || // Accepted a good suggestion
+          (isRejectEvent && log.hasBug); // Rejected a bad suggestion
+
+        if (isCorrectDecision) {
+          correct++;
+        }
+      });
+
       const rollingAccuracy = (correct / windowLogs.length) * 100;
 
       labels.push(index + 1);
@@ -59,35 +105,54 @@ const LearningProgressChart = ({
     });
 
     return { labels, data };
-  }, [userActivity, windowSize]);
+  }, [userActivity, windowSize, eventFilter]);
+
+  const getTooltipDescription = () => {
+    const baseDescription = `This chart shows your learning progress using a rolling ${windowSize}-suggestion average accuracy.`;
+    const trendDescription =
+      "An upward trend indicates improving ability to make correct decisions.";
+
+    switch (eventFilter) {
+      case EventFilter.ACCEPT:
+        return `${baseDescription} Showing only accepted suggestions.\n\n${trendDescription} For accepted suggestions, accuracy means accepting good suggestions and avoiding bad ones.`;
+      case EventFilter.REJECT:
+        return `${baseDescription} Showing only rejected suggestions.\n\n${trendDescription} For rejected suggestions, accuracy means correctly rejecting bad suggestions.`;
+      case EventFilter.TOTAL:
+        return `${baseDescription}\n\n${trendDescription} This includes both accepting good suggestions and rejecting bad ones.`;
+      default:
+        return baseDescription;
+    }
+  };
 
   if (!chartData.labels.length) {
     return (
       <Card className="p-6">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3">
           <CustomTooltip
             trigger={
               <h2 className="text-lg font-semibold text-alpha">{title}</h2>
             }
             children={
               <div className="space-y-2">
-                <p className="text-sm">
-                  This chart shows your learning progress using a rolling{" "}
-                  <span className="font-semibold text-alpha">
-                    {windowSize}-suggestion
-                  </span>{" "}
-                  average accuracy.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  An upward trend indicates improving ability to identify
-                  correct suggestions.
+                <p className="text-sm whitespace-pre-line">
+                  {getTooltipDescription()}
                 </p>
               </div>
             }
           />
+          <CustomSelect
+            value={eventFilter}
+            onValueChange={(value) => setEventFilter(value as EventFilter)}
+            options={[
+              { value: EventFilter.TOTAL, label: "Total" },
+              { value: EventFilter.ACCEPT, label: "Accept" },
+              { value: EventFilter.REJECT, label: "Reject" },
+            ]}
+            className="w-24"
+          />
         </div>
         <div className="flex items-center justify-center h-60 text-muted-foreground">
-          No activity data available
+          No activity data available for {eventFilter.toLowerCase()} events
         </div>
       </Card>
     );
@@ -95,26 +160,28 @@ const LearningProgressChart = ({
 
   return (
     <Card className="p-6">
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <CustomTooltip
           trigger={
             <h2 className="text-lg font-semibold text-alpha">{title}</h2>
           }
           children={
             <div className="space-y-2">
-              <p className="text-sm">
-                This chart shows your learning progress using a rolling{" "}
-                <span className="font-semibold text-alpha">
-                  {windowSize}-suggestion
-                </span>{" "}
-                average accuracy.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                An upward trend indicates improving ability to identify correct
-                suggestions.
+              <p className="text-sm whitespace-pre-line">
+                {getTooltipDescription()}
               </p>
             </div>
           }
+        />
+        <CustomSelect
+          value={eventFilter}
+          onValueChange={(value) => setEventFilter(value as EventFilter)}
+          options={[
+            { value: EventFilter.TOTAL, label: "Total" },
+            { value: EventFilter.ACCEPT, label: "Accept" },
+            { value: EventFilter.REJECT, label: "Reject" },
+          ]}
+          className="w-24"
         />
       </div>
 
@@ -126,12 +193,12 @@ const LearningProgressChart = ({
               {
                 label: "Rolling Accuracy (%)",
                 data: chartData.data,
-                borderColor: "#82ca9d",
-                backgroundColor: "#82ca9d",
+                borderColor: "#50B498",
+                backgroundColor: "#50B498",
                 borderWidth: 3,
                 tension: 0.3,
                 fill: false,
-                pointBackgroundColor: "#82ca9d",
+                pointBackgroundColor: "#50B498",
                 pointBorderColor: "#FFFFFF",
                 pointBorderWidth: 2,
                 pointRadius: 0,
@@ -152,7 +219,11 @@ const LearningProgressChart = ({
                     return `Accuracy: ${context.parsed.y.toFixed(1)}%`;
                   },
                   title: function (context) {
-                    return `Suggestion #${context[0].label}`;
+                    const eventType =
+                      eventFilter === EventFilter.TOTAL
+                        ? "Suggestion"
+                        : `${eventFilter}ed Suggestion`;
+                    return `${eventType} #${context[0].label}`;
                   },
                 },
               },
@@ -163,7 +234,10 @@ const LearningProgressChart = ({
                 grid: { color: gridColor },
                 title: {
                   display: true,
-                  text: "Number of Suggestions",
+                  text:
+                    eventFilter === EventFilter.TOTAL
+                      ? "Number of Suggestions"
+                      : `Number of ${eventFilter}ed Suggestions`,
                   color: textColor,
                 },
               },
