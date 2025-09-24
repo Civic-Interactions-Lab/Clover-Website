@@ -13,10 +13,16 @@ enum TimeInterval {
   MONTH = "Month",
 }
 
+enum EventFilter {
+  TOTAL = "Total",
+  ACCEPT = "Accept",
+  REJECT = "Reject",
+}
+
 /**
- * StackedBarChart component displays a stacked bar chart of user activity log items.
+ * AccuracyDistributionBarChart component displays a stacked bar chart of user activity log items.
  * It shows the number of correct and incorrect suggestions over time, grouped by day, week, or month.
- * @param props - The props for the StackedBarChart component.
+ * @param props - The props for the AccuracyDistributionBarChart component.
  * @param {string?} props.title - The title of the chart.
  * @param {UserActivityLogItem[]} props.activities - The user activity log items to be displayed in the chart.
  * @returns
@@ -29,6 +35,9 @@ export const AccuracyDistributionBarChart = ({
   activities: ActivityLogResponse;
 }) => {
   const [interval, setInterval] = useState<TimeInterval>(TimeInterval.DAY);
+  const [eventFilter, setEventFilter] = useState<EventFilter>(
+    EventFilter.TOTAL
+  );
   const [textColor, setTextColor] = useState("#000000");
   const [gridColor, setGridColor] = useState("rgba(255,255,255,0.1)");
 
@@ -60,7 +69,7 @@ export const AccuracyDistributionBarChart = ({
 
       case TimeInterval.WEEK: {
         const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay()); // Fix: use getDate() instead of day variable
+        weekStart.setDate(date.getDate() - date.getDay());
 
         const y = weekStart.getFullYear();
         const m = String(weekStart.getMonth() + 1).padStart(2, "0");
@@ -79,7 +88,24 @@ export const AccuracyDistributionBarChart = ({
 
   const dateMap: Record<string, { correct: number; incorrect: number }> = {};
 
-  activities.forEach((activity) => {
+  // Filter activities based on event filter
+  const filteredActivities = activities.filter((activity) => {
+    const isAcceptEvent = ACCEPT_EVENTS.includes(activity.event);
+    const isRejectEvent = REJECT_EVENTS.includes(activity.event);
+
+    switch (eventFilter) {
+      case EventFilter.ACCEPT:
+        return isAcceptEvent;
+      case EventFilter.REJECT:
+        return isRejectEvent;
+      case EventFilter.TOTAL:
+        return isAcceptEvent || isRejectEvent;
+      default:
+        return false;
+    }
+  });
+
+  filteredActivities.forEach((activity) => {
     const date =
       typeof activity.createdAt === "string"
         ? new Date(activity.createdAt)
@@ -134,7 +160,6 @@ export const AccuracyDistributionBarChart = ({
 
       case TimeInterval.MONTH:
         for (let i = 6; i >= 0; i--) {
-          // Last 7 months + next month
           const date = new Date(today);
           date.setMonth(today.getMonth() - i);
           range.push(groupBy(date, interval));
@@ -143,6 +168,24 @@ export const AccuracyDistributionBarChart = ({
     }
 
     return range;
+  };
+
+  const getTooltipDescription = () => {
+    const baseDescription =
+      "This chart shows the distribution of correct and incorrect decisions made by the user over time.";
+    const correctIncorrectDescription =
+      "Correct: Accepting good suggestions or rejecting bad ones\nIncorrect: Accepting bad suggestions or rejecting good ones";
+
+    switch (eventFilter) {
+      case EventFilter.ACCEPT:
+        return `${baseDescription} Showing only accepted suggestions.\n\n${correctIncorrectDescription}`;
+      case EventFilter.REJECT:
+        return `${baseDescription} Showing only rejected suggestions.\n\n${correctIncorrectDescription}`;
+      case EventFilter.TOTAL:
+        return `${baseDescription}\n\n${correctIncorrectDescription}`;
+      default:
+        return baseDescription;
+    }
   };
 
   const labels = getLabelRange();
@@ -224,29 +267,35 @@ export const AccuracyDistributionBarChart = ({
           }
           children={
             <div className="space-y-2">
-              <p className="text-sm">
-                This chart shows the distribution of correct and incorrect
-                decisions made by the user over time.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Correct: Accepting good suggestions or rejecting bad ones
-                <br />
-                Incorrect: Accepting bad suggestions or rejecting good ones
+              <p className="text-sm whitespace-pre-line">
+                {getTooltipDescription()}
               </p>
             </div>
           }
         />
 
-        <CustomSelect
-          value={interval}
-          onValueChange={(value) => setInterval(value as TimeInterval)}
-          options={[
-            { value: TimeInterval.DAY, label: "Day" },
-            { value: TimeInterval.WEEK, label: "Week" },
-            { value: TimeInterval.MONTH, label: "Month" },
-          ]}
-          className="w-32"
-        />
+        <div className="flex gap-2">
+          <CustomSelect
+            value={eventFilter}
+            onValueChange={(value) => setEventFilter(value as EventFilter)}
+            options={[
+              { value: EventFilter.TOTAL, label: "Total" },
+              { value: EventFilter.ACCEPT, label: "Accept" },
+              { value: EventFilter.REJECT, label: "Reject" },
+            ]}
+            className="w-24"
+          />
+          <CustomSelect
+            value={interval}
+            onValueChange={(value) => setInterval(value as TimeInterval)}
+            options={[
+              { value: TimeInterval.DAY, label: "Day" },
+              { value: TimeInterval.WEEK, label: "Week" },
+              { value: TimeInterval.MONTH, label: "Month" },
+            ]}
+            className="w-32"
+          />
+        </div>
       </div>
 
       <div className="relative w-full h-60 md:h-64 lg:h-72">

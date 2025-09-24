@@ -109,6 +109,32 @@ export async function getUserDiffsByTime(
     }
 
     const data = (await response.json()) as UserDiffsResponse;
+
+    console.log(
+      data.groups.map((group) => ({
+        groupId: group.groupId,
+        language: group.language,
+        fileName: group.fileName,
+        eventTime: group.eventTime,
+        prompt: group.prompt,
+      }))
+    );
+
+    // Console table for all steps
+    data.groups.forEach((group) => {
+      console.log(`\n--- Steps for Group: ${group.groupId} ---`);
+      console.log(
+        group.steps.map((step) => ({
+          suggestionId: step.suggestionId,
+          event: step.event,
+          shownBug: step.shownBug,
+          appended: step.appended,
+          createdAt: step.createdAt,
+          linesCount: step.lines,
+        }))
+      );
+    });
+
     return { data };
   } catch (err) {
     return {

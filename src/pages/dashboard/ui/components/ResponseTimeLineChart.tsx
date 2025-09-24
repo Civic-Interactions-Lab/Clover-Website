@@ -2,7 +2,9 @@ import { ActivityLogResponse } from "@/types/suggestion";
 import { CustomTooltip } from "@/components/CustomTooltip";
 import { Card } from "@/components/ui/card";
 import { useEffect, useMemo, useState } from "react";
-import { Line } from "react-chartjs-2";
+import { Line, Scatter } from "react-chartjs-2";
+import CustomSelect from "@/components/CustomSelect";
+import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -25,6 +27,12 @@ ChartJS.register(
   Legend
 );
 
+enum EventFilter {
+  TOTAL = "Total",
+  ACCEPT = "Accept",
+  REJECT = "Reject",
+}
+
 interface ResponseTimeLineChartProps {
   userActivity: ActivityLogResponse;
   windowSize?: number;
@@ -34,8 +42,11 @@ interface ResponseTimeLineChartProps {
 const ResponseTimeLineChart = ({
   userActivity,
   windowSize = 20,
-  title = "Accept Response Time Trends & Correctness",
+  title = "Response Time vs Accuracy Analysis",
 }: ResponseTimeLineChartProps) => {
+  const [eventFilter, setEventFilter] = useState<EventFilter>(
+    EventFilter.TOTAL
+  );
   const [textColor, setTextColor] = useState("#000000");
   const [gridColor, setGridColor] = useState("rgba(255,255,255,0.1)");
 
@@ -66,27 +77,24 @@ const ResponseTimeLineChart = ({
       };
     }
 
-    // Filter only accepted suggestions and sort chronologically
-    const acceptedActivity = [...userActivity]
-      .filter((log) => log.event.includes("ACCEPT"))
-      .sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )
-      .map((log, index) => {
-        const hasBug = log.hasBug ?? false;
-        const isCorrect = !hasBug;
+    // Filter activities based on event filter
+    const filteredActivity = userActivity.filter((activity) => {
+      const isAcceptEvent = ACCEPT_EVENTS.includes(activity.event);
+      const isRejectEvent = REJECT_EVENTS.includes(activity.event);
 
-        return {
-          index: index + 1,
-          duration: log.duration || 0,
-          isCorrect,
-          timestamp: new Date(log.createdAt).toLocaleTimeString(),
-          hasBug,
-        };
-      });
+      switch (eventFilter) {
+        case EventFilter.ACCEPT:
+          return isAcceptEvent;
+        case EventFilter.REJECT:
+          return isRejectEvent;
+        case EventFilter.TOTAL:
+          return isAcceptEvent || isRejectEvent;
+        default:
+          return false;
+      }
+    });
 
-    if (acceptedActivity.length === 0) {
+    if (!filteredActivity.length) {
       return {
         labels: [],
         datasets: [],
@@ -94,119 +102,137 @@ const ResponseTimeLineChart = ({
       };
     }
 
-    // Helper function to calculate rolling average
-    const calculateRollingAverage = (
-      data: typeof acceptedActivity,
-      filterFn?: (item: (typeof acceptedActivity)[0]) => boolean
-    ) => {
-      const filtered = filterFn ? data.filter(filterFn) : data;
-      if (filtered.length === 0) return [];
+    // Sort chronologically
+    const sortedActivity = [...filteredActivity].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
 
-      const rollingData: { x: number; y: number }[] = [];
+    const labels: number[] = [];
+    const responseTimeData: number[] = [];
+    const accuracyData: number[] = [];
 
-      filtered.forEach((_, index) => {
-        const startIndex = Math.max(0, index - windowSize + 1);
-        const window = filtered.slice(startIndex, index + 1);
-        const avgDuration =
-          window.reduce((sum, item) => sum + item.duration, 0) / window.length;
+    sortedActivity.forEach((_, index) => {
+      const startIndex = Math.max(0, index - windowSize + 1);
+      const windowLogs = sortedActivity.slice(startIndex, index + 1);
 
-        rollingData.push({
-          x: filtered[index].index,
-          y: Math.round(avgDuration * 100) / 100,
-        });
+      // Calculate rolling average response time
+      const avgResponseTime =
+        windowLogs.reduce((sum, log) => sum + (log.duration || 0), 0) /
+        windowLogs.length;
+
+      // Calculate rolling accuracy
+      let correct = 0;
+      windowLogs.forEach((log) => {
+        const isAcceptEvent = ACCEPT_EVENTS.includes(log.event);
+        const isRejectEvent = REJECT_EVENTS.includes(log.event);
+
+        // Determine if this was a correct decision
+        const isCorrectDecision =
+          (isAcceptEvent && !log.hasBug) || // Accepted a good suggestion
+          (isRejectEvent && log.hasBug); // Rejected a bad suggestion
+
+        if (isCorrectDecision) {
+          correct++;
+        }
       });
 
-      return rollingData;
-    };
+      const rollingAccuracy = (correct / windowLogs.length) * 100;
 
-    // Create rolling averages for different categories
-    const allAcceptTimes = calculateRollingAverage(acceptedActivity);
-    const correctAcceptTimes = calculateRollingAverage(
-      acceptedActivity,
-      (item) => item.isCorrect
-    );
-    const incorrectAcceptTimes = calculateRollingAverage(
-      acceptedActivity,
-      (item) => !item.isCorrect
-    );
+      labels.push(index + 1);
+      responseTimeData.push(Math.round(avgResponseTime * 100) / 100);
+      accuracyData.push(Math.round(rollingAccuracy * 100) / 100);
+    });
 
     return {
-      labels: acceptedActivity.map((item) => item.index),
+      labels,
       datasets: [
         {
-          label: `All Accept Time (${windowSize}-avg)`,
-          data: allAcceptTimes,
-          borderColor: "#6B7280", // gray
-          backgroundColor: "#6B7280",
-          pointRadius: 0,
-          pointHoverRadius: 6,
+          label: `Response Time (${windowSize}-avg)`,
+          data: responseTimeData,
+          borderColor: "#3B82F6",
+          backgroundColor: "#3B82F6",
+          yAxisID: "y",
           tension: 0.3,
           borderWidth: 3,
-          borderDash: [5, 5], // dashed line
+          pointRadius: 0,
+          pointHoverRadius: 6,
         },
         {
-          label: `Correct Accept Time (${windowSize}-avg)`,
-          data: correctAcceptTimes,
-          borderColor: "#10B981", // green
-          backgroundColor: "#10B981",
-          pointRadius: 0,
-          pointHoverRadius: 6,
+          label: `Accuracy % (${windowSize}-avg)`,
+          data: accuracyData,
+          borderColor: "#50B498",
+          backgroundColor: "#50B498",
+          yAxisID: "y1",
           tension: 0.3,
           borderWidth: 3,
-        },
-        {
-          label: `Incorrect Accept Time (${windowSize}-avg)`,
-          data: incorrectAcceptTimes,
-          borderColor: "#EF4444", // red
-          backgroundColor: "#EF4444",
           pointRadius: 0,
           pointHoverRadius: 6,
-          tension: 0.3,
-          borderWidth: 3,
         },
-      ].filter((dataset) => dataset.data.length > 0), // Only include datasets with data
+      ],
       isEmpty: false,
-      activityData: acceptedActivity,
       stats: {
-        totalAccepted: acceptedActivity.length,
-        correctCount: acceptedActivity.filter((item) => item.isCorrect).length,
-        incorrectCount: acceptedActivity.filter((item) => !item.isCorrect)
-          .length,
+        total: sortedActivity.length,
+        avgResponseTime: responseTimeData[responseTimeData.length - 1] || 0,
+        currentAccuracy: accuracyData[accuracyData.length - 1] || 0,
+        finalWindowCorrect: Math.round(
+          ((accuracyData[accuracyData.length - 1] || 0) / 100) * windowSize
+        ),
+        finalWindowIncorrect:
+          windowSize -
+          Math.round(
+            ((accuracyData[accuracyData.length - 1] || 0) / 100) * windowSize
+          ),
       },
     };
-  }, [userActivity, windowSize]);
+  }, [userActivity, windowSize, eventFilter]);
+
+  const getTooltipDescription = () => {
+    const baseDescription = `This dual-axis line chart shows both response time and accuracy trends using rolling ${windowSize}-suggestion averages. The blue line (left axis) shows response time, the green line (right axis) shows accuracy percentage.`;
+
+    switch (eventFilter) {
+      case EventFilter.ACCEPT:
+        return `${baseDescription} Showing only accepted suggestions. Look for correlations: do faster acceptances lead to better or worse accuracy?`;
+      case EventFilter.REJECT:
+        return `${baseDescription} Showing only rejected suggestions. Look for correlations: do faster rejections lead to better or worse accuracy?`;
+      case EventFilter.TOTAL:
+        return `${baseDescription} Showing all suggestions. Analyze how your speed and accuracy evolve together over time.`;
+      default:
+        return baseDescription;
+    }
+  };
 
   if (chartData.isEmpty) {
     return (
       <Card className="p-6">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3">
           <CustomTooltip
             trigger={
               <h2 className="text-lg font-semibold text-alpha">{title}</h2>
             }
             children={
               <div className="space-y-2">
-                <p className="text-sm">
-                  This chart shows your response time trends for{" "}
-                  <span className="font-semibold text-alpha">
-                    accepted suggestions only
-                  </span>{" "}
-                  using a rolling{" "}
-                  <span className="font-semibold text-alpha">
-                    {windowSize}-suggestion
-                  </span>{" "}
-                  average, comparing correct vs incorrect acceptances.
-                </p>
+                <p className="text-sm">{getTooltipDescription()}</p>
                 <p className="text-xs text-muted-foreground">
-                  Helps identify if faster or slower acceptance decisions lead
-                  to better outcomes.
+                  Identify patterns: Are you getting faster while maintaining
+                  accuracy? Or does speed come at the cost of precision?
                 </p>
               </div>
             }
           />
+          <CustomSelect
+            value={eventFilter}
+            onValueChange={(value) => setEventFilter(value as EventFilter)}
+            options={[
+              { value: EventFilter.TOTAL, label: "Total" },
+              { value: EventFilter.ACCEPT, label: "Accept" },
+              { value: EventFilter.REJECT, label: "Reject" },
+            ]}
+            className="w-24"
+          />
         </div>
         <div className="flex items-center justify-center h-60 text-muted-foreground">
-          No accepted suggestion data available
+          No {eventFilter.toLowerCase()} suggestion data available
         </div>
       </Card>
     );
@@ -231,29 +257,20 @@ const ResponseTimeLineChart = ({
       tooltip: {
         callbacks: {
           title: function (context) {
-            const index = context[0]?.parsed?.x;
-            if (index && chartData.activityData) {
-              const item = chartData.activityData.find(
-                (item) => item.index === index
-              );
-              return `Accept #${index} - ${item?.timestamp || ""}`;
-            }
-            return `Accept #${index}`;
+            const eventType =
+              eventFilter === EventFilter.TOTAL
+                ? "Suggestion"
+                : `${eventFilter}ed Suggestion`;
+            return `${eventType} #${context[0].label}`;
           },
           label: function (context) {
-            return `${context.dataset.label}: ${context.parsed.y}ms`;
+            if (context.datasetIndex === 0) {
+              return `Response Time: ${context.parsed.y}ms`;
+            } else {
+              return `Accuracy: ${context.parsed.y}%`;
+            }
           },
           afterLabel: function (context) {
-            const index = context.parsed?.x;
-            if (index && chartData.activityData) {
-              const item = chartData.activityData.find(
-                (item) => item.index === index
-              );
-              const status = item?.isCorrect
-                ? "✓ Correct (No Bug)"
-                : "✗ Incorrect (Has Bug)";
-              return [`(Rolling ${windowSize}-suggestion average)`, status];
-            }
             return `(Rolling ${windowSize}-suggestion average)`;
           },
         },
@@ -264,7 +281,7 @@ const ResponseTimeLineChart = ({
         display: true,
         title: {
           display: true,
-          text: "Accepted Suggestion Number (Chronological Order)",
+          text: `${eventFilter === EventFilter.TOTAL ? "Suggestion" : eventFilter + "ed Suggestion"} Number (Chronological Order)`,
           color: textColor,
         },
         ticks: {
@@ -274,10 +291,12 @@ const ResponseTimeLineChart = ({
         grid: { color: gridColor },
       },
       y: {
+        type: "linear" as const,
         display: true,
+        position: "left" as const,
         title: {
           display: true,
-          text: "Average Response Time (ms)",
+          text: "Response Time (ms)",
           color: textColor,
         },
         ticks: {
@@ -289,81 +308,69 @@ const ResponseTimeLineChart = ({
         grid: { color: gridColor },
         beginAtZero: true,
       },
+      y1: {
+        type: "linear" as const,
+        display: true,
+        position: "right" as const,
+        title: {
+          display: true,
+          text: "Accuracy (%)",
+          color: textColor,
+        },
+        ticks: {
+          color: textColor,
+          callback: function (value) {
+            return `${value}%`;
+          },
+        },
+        grid: {
+          drawOnChartArea: false, // Don't draw grid lines for right axis
+        },
+        min: 0,
+        max: 100,
+      },
     },
   };
 
   return (
     <Card className="p-6">
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3">
         <CustomTooltip
           trigger={
             <h2 className="text-lg font-semibold text-alpha">{title}</h2>
           }
           children={
             <div className="space-y-2">
-              <p className="text-sm">
-                This chart tracks{" "}
-                <span className="font-semibold text-alpha">
-                  acceptance response time trends
-                </span>{" "}
-                using a rolling{" "}
-                <span className="font-semibold text-alpha">
-                  {windowSize}-suggestion
-                </span>{" "}
-                average, showing how quickly you accept suggestions and whether
-                faster or slower decisions lead to better outcomes.
-              </p>
+              <p className="text-sm">{getTooltipDescription()}</p>
               <div className="space-y-1 text-xs">
                 <p>
-                  <span className="inline-block w-3 h-3 bg-gray-500 rounded-full mr-2"></span>
-                  All Accept Time: Rolling average for all accepted suggestions
+                  <span className="inline-block w-3 h-3 bg-[#3B82F6] rounded-full mr-2"></span>
+                  Blue Line (Left Axis): Rolling average response time in
+                  milliseconds
                 </p>
                 <p>
-                  <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                  Correct Accept Time: Rolling average for correct acceptances
-                  (no bugs)
-                </p>
-                <p>
-                  <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-                  Incorrect Accept Time: Rolling average for incorrect
-                  acceptances (with bugs)
+                  <span className="inline-block w-3 h-3 bg-[#50B498] rounded-full mr-2"></span>
+                  Green Line (Right Axis): Rolling average accuracy percentage
                 </p>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Compare the green and red lines to see if faster or slower
-                decisions correlate with better outcomes.
+                Look for correlations: Are the lines moving in the same or
+                opposite directions?
               </p>
             </div>
           }
         />
+        <CustomSelect
+          value={eventFilter}
+          onValueChange={(value) => setEventFilter(value as EventFilter)}
+          options={[
+            { value: EventFilter.TOTAL, label: "Total" },
+            { value: EventFilter.ACCEPT, label: "Accept" },
+            { value: EventFilter.REJECT, label: "Reject" },
+          ]}
+          className="w-24"
+        />
       </div>
-
-      {chartData.stats && (
-        <div className="mb-4 p-3 bg-muted/30 rounded-lg">
-          <div className="flex flex-wrap gap-4 text-sm">
-            <span>
-              Total Accepted: <strong>{chartData.stats.totalAccepted}</strong>
-            </span>
-            <span className="text-green-600">
-              Correct: <strong>{chartData.stats.correctCount}</strong>
-            </span>
-            <span className="text-red-600">
-              Incorrect: <strong>{chartData.stats.incorrectCount}</strong>
-            </span>
-            <span>
-              Accuracy:{" "}
-              <strong>
-                {Math.round(
-                  (chartData.stats.correctCount /
-                    chartData.stats.totalAccepted) *
-                    100
-                )}
-                %
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
 
       <div className="relative w-full h-60 md:h-64 lg:h-72">
         <Line data={chartData} options={options} />

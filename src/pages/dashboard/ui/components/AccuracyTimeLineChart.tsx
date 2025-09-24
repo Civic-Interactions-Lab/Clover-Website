@@ -12,16 +12,25 @@ enum TimeInterval {
   MONTH = "Month",
 }
 
+enum EventFilter {
+  TOTAL = "Total",
+  ACCEPT = "Accept",
+  REJECT = "Reject",
+}
+
 interface AccuracyOverTimeProps {
   title?: string;
   userActivity: ActivityLogResponse;
 }
 
 const AccuracyTimeLineChart = ({
-  title = "Accuracy Time Line",
+  title = "Accuracy Over Time",
   userActivity,
 }: AccuracyOverTimeProps) => {
   const [interval, setInterval] = useState<TimeInterval>(TimeInterval.DAY);
+  const [eventFilter, setEventFilter] = useState<EventFilter>(
+    EventFilter.TOTAL
+  );
   const [textColor, setTextColor] = useState("#000000");
   const [gridColor, setGridColor] = useState("rgba(255,255,255,0.1)");
 
@@ -66,25 +75,6 @@ const AccuracyTimeLineChart = ({
     return "";
   };
 
-  // Group activities by time period and calculate accuracy
-  const accuracyMap: Record<string, { total: number; correct: number }> = {};
-
-  userActivity.forEach((activity) => {
-    const date = new Date(activity.createdAt);
-    const key = groupBy(date, interval);
-
-    if (key) {
-      if (!accuracyMap[key]) {
-        accuracyMap[key] = { total: 0, correct: 0 };
-      }
-
-      accuracyMap[key].total++;
-      if (activity.hasBug === false) {
-        accuracyMap[key].correct++;
-      }
-    }
-  });
-
   const getLabelRange = () => {
     const range: string[] = [];
     const today = new Date();
@@ -118,15 +108,81 @@ const AccuracyTimeLineChart = ({
 
   const labels = getLabelRange();
 
+  // Filter and calculate accuracy based on selected event filter
+  const calculateAccuracy = () => {
+    const accuracyMap: Record<string, { total: number; correct: number }> = {};
+
+    userActivity.forEach((activity) => {
+      const date = new Date(activity.createdAt);
+      const key = groupBy(date, interval);
+
+      if (!key) return;
+
+      let shouldInclude = false;
+      let isCorrect = false;
+
+      if (
+        eventFilter === EventFilter.ACCEPT &&
+        activity.event === "SUGGESTION_LINE_ACCEPT"
+      ) {
+        shouldInclude = true;
+        isCorrect = !activity.hasBug; // Correct if accepted suggestion has no bug
+      } else if (
+        eventFilter === EventFilter.REJECT &&
+        activity.event === "SUGGESTION_LINE_REJECT"
+      ) {
+        shouldInclude = true;
+        isCorrect = activity.hasBug === true; // Correct if rejected suggestion has bug
+      } else if (
+        eventFilter === EventFilter.TOTAL &&
+        (activity.event === "SUGGESTION_LINE_ACCEPT" ||
+          activity.event === "SUGGESTION_LINE_REJECT")
+      ) {
+        shouldInclude = true;
+        isCorrect =
+          (activity.event === "SUGGESTION_LINE_ACCEPT" && !activity.hasBug) ||
+          (activity.event === "SUGGESTION_LINE_REJECT" && activity.hasBug) ||
+          false;
+      }
+
+      if (shouldInclude) {
+        if (!accuracyMap[key]) {
+          accuracyMap[key] = { total: 0, correct: 0 };
+        }
+        accuracyMap[key].total++;
+        if (isCorrect) {
+          accuracyMap[key].correct++;
+        }
+      }
+    });
+
+    return accuracyMap;
+  };
+
+  const accuracyMap = calculateAccuracy();
+
   // Calculate accuracy percentages for each time period
   const accuracyValues = labels.map((key) => {
     const stats = accuracyMap[key];
-    if (!stats || stats.total === 0) return 0; // Default to 0 instead of null for periods with no data
+    if (!stats || stats.total === 0) return 0;
     return (stats.correct / stats.total) * 100;
   });
 
   // Calculate total suggestions for each time period (for tooltip)
   const totalValues = labels.map((key) => accuracyMap[key]?.total || 0);
+
+  const getTooltipDescription = () => {
+    switch (eventFilter) {
+      case EventFilter.ACCEPT:
+        return "Shows accuracy for accepted suggestions only. Accuracy = percentage of accepted suggestions that had no bugs.";
+      case EventFilter.REJECT:
+        return "Shows accuracy for rejected suggestions only. Accuracy = percentage of rejected suggestions that correctly had bugs.";
+      case EventFilter.TOTAL:
+        return "Shows overall accuracy combining accepts and rejects. Accuracy = percentage of correct decisions (accepting good suggestions + rejecting buggy suggestions).";
+      default:
+        return "";
+    }
+  };
 
   return (
     <Card className="p-6">
@@ -138,31 +194,38 @@ const AccuracyTimeLineChart = ({
             }
             children={
               <div className="space-y-2">
-                <p className="text-sm">
-                  This chart shows your accuracy percentage over time.{" "}
-                  <span className="font-semibold text-alpha">Accuracy</span> is
-                  calculated as the percentage of suggestions that were correct
-                  (no bugs detected).
-                </p>
+                <p className="text-sm">{getTooltipDescription()}</p>
                 <p className="text-xs text-muted-foreground">
-                  Time range can be adjusted (daily/weekly/monthly). Periods
-                  with no activity are not shown on the chart.
+                  Use the filter to view accuracy for different event types.
+                  Time range can be adjusted (daily/weekly/monthly).
                 </p>
               </div>
             }
           />
         </div>
 
-        <CustomSelect
-          value={interval}
-          onValueChange={(value) => setInterval(value as TimeInterval)}
-          options={[
-            { value: TimeInterval.DAY, label: "Day" },
-            { value: TimeInterval.WEEK, label: "Week" },
-            { value: TimeInterval.MONTH, label: "Month" },
-          ]}
-          className="w-24"
-        />
+        <div className="flex gap-2">
+          <CustomSelect
+            value={eventFilter}
+            onValueChange={(value) => setEventFilter(value as EventFilter)}
+            options={[
+              { value: EventFilter.TOTAL, label: "Total" },
+              { value: EventFilter.ACCEPT, label: "Accept" },
+              { value: EventFilter.REJECT, label: "Reject" },
+            ]}
+            className="w-24"
+          />
+          <CustomSelect
+            value={interval}
+            onValueChange={(value) => setInterval(value as TimeInterval)}
+            options={[
+              { value: TimeInterval.DAY, label: "Day" },
+              { value: TimeInterval.WEEK, label: "Week" },
+              { value: TimeInterval.MONTH, label: "Month" },
+            ]}
+            className="w-24"
+          />
+        </div>
       </div>
 
       <div className="relative w-full h-60 md:h-64 lg:h-72">
@@ -183,7 +246,7 @@ const AccuracyTimeLineChart = ({
                 pointBorderWidth: 2,
                 pointRadius: 6,
                 pointHoverRadius: 8,
-                spanGaps: false, // Don't span gaps since we're using 0 values
+                spanGaps: false,
               },
             ],
           }}
@@ -200,7 +263,12 @@ const AccuracyTimeLineChart = ({
 
                     if (total === 0) return "No suggestions";
 
-                    return `Accuracy: ${accuracy.toFixed(1)}% (${total} suggestions)`;
+                    const eventType =
+                      eventFilter === EventFilter.TOTAL
+                        ? "total suggestions"
+                        : `${eventFilter.toLowerCase()}ed suggestions`;
+
+                    return `Accuracy: ${accuracy.toFixed(1)}% (${total} ${eventType})`;
                   },
                 },
               },
