@@ -16,6 +16,8 @@ import {
   Heading2,
   CheckSquare,
   BarChart3,
+  ChevronDown,
+  Activity,
 } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import SurveyPreview, {
@@ -171,6 +173,8 @@ const CreateEditSurveyView = () => {
       | "multiple_select"
       | "likert"
       | "section_title"
+      | "slider"
+      | "nasa_tlx"
   ) => {
     // Get the next order number for all questions (including section titles)
     const maxQuestionNumber = Math.max(
@@ -190,7 +194,26 @@ const CreateEditSurveyView = () => {
         question_options: [""], // For optional description
         is_required: false,
       };
+    } else if (type === "slider") {
+      newQuestionData = {
+        survey_id: survey.id,
+        question_type: type,
+        question_number: newQuestionNumber,
+        question_text: "New slider question",
+        question_options: ["1", "10", "", ""],
+        is_required: false,
+      };
+    } else if (type === "nasa_tlx") {
+      newQuestionData = {
+        survey_id: survey.id,
+        question_type: type,
+        question_number: newQuestionNumber,
+        question_text: "NASA Task Load Index (TLX)",
+        question_options: [], // Start empty - user adds scales individually
+        is_required: false,
+      };
     } else {
+      // ... rest of the cases remain the same
       switch (type) {
         case "multiple_select":
           newQuestionData = {
@@ -428,6 +451,16 @@ const CreateEditSurveyView = () => {
           </Button>
 
           <Button
+            onClick={() => addQuestion("slider")}
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <BarChart3 size={16} />
+            Slider Scale
+          </Button>
+
+          <Button
             onClick={() => addQuestion("multiple_choice")}
             size="sm"
             variant="outline"
@@ -455,6 +488,16 @@ const CreateEditSurveyView = () => {
           >
             <BarChart3 size={16} />
             Likert Scale
+          </Button>
+
+          <Button
+            onClick={() => addQuestion("nasa_tlx")}
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Activity size={16} />
+            NASA-TLX
           </Button>
         </div>
 
@@ -634,6 +677,8 @@ const QuestionItem = ({
       multiple_select: "MULTIPLE SELECT",
       likert: "LIKERT SCALE",
       section_title: "SECTION",
+      slider: "SLIDER SCALE",
+      nasa_tlx: "NASA-TLX",
     };
     return labels[type as keyof typeof labels] || type.toUpperCase();
   };
@@ -746,7 +791,9 @@ const QuestionItem = ({
               placeholder={
                 question.question_type === "section_title"
                   ? "Enter section title..."
-                  : "Enter your question..."
+                  : question.question_type === "nasa_tlx"
+                    ? "Enter instructions for NASA-TLX assessment..."
+                    : "Enter your question..."
               }
               rows={2}
             />
@@ -770,22 +817,200 @@ const QuestionItem = ({
             </div>
           )}
 
-          {question.question_type !== "section_title" && (
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id={`required-${question.id}`}
-                checked={question.is_required}
-                onChange={(e) =>
-                  updateQuestion(question.id, {
-                    is_required: e.target.checked,
-                  })
-                }
-                className="rounded"
-              />
-              <Label htmlFor={`required-${question.id}`} className="text-sm">
-                Required
+          {question.question_type !== "section_title" &&
+            question.question_type !== "nasa_tlx" && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id={`required-${question.id}`}
+                  checked={question.is_required}
+                  onChange={(e) =>
+                    updateQuestion(question.id, {
+                      is_required: e.target.checked,
+                    })
+                  }
+                  className="rounded"
+                />
+                <Label htmlFor={`required-${question.id}`} className="text-sm">
+                  Required
+                </Label>
+              </div>
+            )}
+
+          {question.question_type === "nasa_tlx" && (
+            <div>
+              <Label className="block text-sm font-medium mb-2">
+                NASA-TLX Scales
               </Label>
+              <div className="space-y-3">
+                {question.question_options?.map((scaleData, index) => {
+                  // Parse scale data: "scaleName|lowLabel|highLabel"
+                  const parts = scaleData.split("|");
+                  const scaleName = parts[0] || "";
+                  const lowLabel = parts[1] || "Low";
+                  const highLabel = parts[2] || "High";
+
+                  return (
+                    <div
+                      key={index}
+                      className="border rounded-lg p-4 space-y-3"
+                    >
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <Label className="text-sm font-medium mb-1">
+                            Scale Name
+                          </Label>
+                          <Input
+                            value={scaleName}
+                            onChange={(e) => {
+                              const newScales = [
+                                ...(question.question_options || []),
+                              ];
+                              newScales[index] =
+                                `${e.target.value}|${lowLabel}|${highLabel}`;
+                              updateQuestion(question.id, {
+                                question_options: newScales,
+                              });
+                            }}
+                            placeholder="Enter scale name (e.g., Mental Demand)"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-sm font-medium mb-1">
+                              Low Label
+                            </Label>
+                            <Input
+                              value={lowLabel}
+                              onChange={(e) => {
+                                const newScales = [
+                                  ...(question.question_options || []),
+                                ];
+                                newScales[index] = `${scaleName}`;
+                                updateQuestion(question.id, {
+                                  question_options: newScales,
+                                });
+                              }}
+                              placeholder="Low"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium mb-1">
+                              High Label
+                            </Label>
+                            <Input
+                              value={highLabel}
+                              onChange={(e) => {
+                                const newScales = [
+                                  ...(question.question_options || []),
+                                ];
+                                newScales[index] =
+                                  `${scaleName}|${lowLabel}|${e.target.value}`;
+                                updateQuestion(question.id, {
+                                  question_options: newScales,
+                                });
+                              }}
+                              placeholder="High"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const newScales =
+                            question.question_options?.filter(
+                              (_, i) => i !== index
+                            ) || [];
+                          updateQuestion(question.id, {
+                            question_options: newScales,
+                          });
+                        }}
+                        className="text-red-600 hover:text-red-700 w-full"
+                      >
+                        <Trash2 size={16} className="mr-2" />
+                        Remove Scale
+                      </Button>
+                    </div>
+                  );
+                }) || []}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const currentScales = question.question_options || [];
+                    updateQuestion(question.id, {
+                      question_options: [
+                        ...currentScales,
+                        "New Scale|Low|High",
+                      ],
+                    });
+                  }}
+                  className="w-full mt-2"
+                >
+                  <Plus size={16} className="mr-2" />
+                  Add NASA-TLX Scale
+                </Button>
+              </div>
+
+              {/* Quick add buttons for standard NASA-TLX scales */}
+              <div className="mt-4">
+                <Label className="block text-sm font-medium mb-2">
+                  Quick Add Standard Scales
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    {
+                      name: "Mental Demand",
+                      low: "Very Low",
+                      high: "Very High",
+                    },
+                    {
+                      name: "Physical Demand",
+                      low: "Very Low",
+                      high: "Very High",
+                    },
+                    {
+                      name: "Temporal Demand",
+                      low: "Very Low",
+                      high: "Very High",
+                    },
+                    { name: "Performance", low: "Perfect", high: "Failure" },
+                    { name: "Effort", low: "Very Low", high: "Very High" },
+                    { name: "Frustration", low: "Very Low", high: "Very High" },
+                  ].map((standardScale) => {
+                    const scaleString = `${standardScale.name}|${standardScale.low}|${standardScale.high}`;
+                    const alreadyExists = question.question_options?.some(
+                      (option) => option.split("|")[0] === standardScale.name
+                    );
+
+                    return (
+                      <Button
+                        key={standardScale.name}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const currentScales = question.question_options || [];
+                          updateQuestion(question.id, {
+                            question_options: [...currentScales, scaleString],
+                          });
+                        }}
+                        disabled={alreadyExists}
+                        className="text-xs"
+                      >
+                        {standardScale.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-2">
+                Add individual scales for the NASA-TLX assessment. Each scale
+                will be rated from 0 to 20 with custom labels.
+              </div>
             </div>
           )}
 
@@ -837,6 +1062,127 @@ const QuestionItem = ({
                   <Plus size={16} className="mr-2" />
                   Add Option
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {question.question_type === "slider" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Minimum Value
+                  </Label>
+                  <Input
+                    type="number"
+                    value={question.question_options?.[0] || "1"}
+                    onChange={(e) => {
+                      const currentOptions = question.question_options || [
+                        "1",
+                        "10",
+                        "",
+                        "",
+                      ];
+                      const newOptions = [
+                        e.target.value,
+                        currentOptions[1],
+                        currentOptions[2],
+                        currentOptions[3],
+                      ];
+                      updateQuestion(question.id, {
+                        question_options: newOptions,
+                      });
+                    }}
+                    placeholder="1"
+                  />
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Maximum Value
+                  </Label>
+                  <Input
+                    type="number"
+                    value={question.question_options?.[1] || "10"}
+                    onChange={(e) => {
+                      const currentOptions = question.question_options || [
+                        "1",
+                        "10",
+                        "",
+                        "",
+                      ];
+                      const newOptions = [
+                        currentOptions[0],
+                        e.target.value,
+                        currentOptions[2],
+                        currentOptions[3],
+                      ];
+                      updateQuestion(question.id, {
+                        question_options: newOptions,
+                      });
+                    }}
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Min Label (Optional)
+                  </Label>
+                  <Input
+                    value={question.question_options?.[2] || ""}
+                    onChange={(e) => {
+                      const currentOptions = question.question_options || [
+                        "1",
+                        "10",
+                        "",
+                        "",
+                      ];
+                      const newOptions = [
+                        currentOptions[0],
+                        currentOptions[1],
+                        e.target.value,
+                        currentOptions[3],
+                      ];
+                      updateQuestion(question.id, {
+                        question_options: newOptions,
+                      });
+                    }}
+                    placeholder="e.g., Low, Poor, Never"
+                  />
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium mb-2">
+                    Max Label (Optional)
+                  </Label>
+                  <Input
+                    value={question.question_options?.[3] || ""}
+                    onChange={(e) => {
+                      const currentOptions = question.question_options || [
+                        "1",
+                        "10",
+                        "",
+                        "",
+                      ];
+                      const newOptions = [
+                        currentOptions[0],
+                        currentOptions[1],
+                        currentOptions[2],
+                        e.target.value,
+                      ];
+                      updateQuestion(question.id, {
+                        question_options: newOptions,
+                      });
+                    }}
+                    placeholder="e.g., High, Excellent, Always"
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Users will slide between the min and max values. Labels help
+                explain what the values mean.
               </div>
             </div>
           )}
