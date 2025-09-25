@@ -34,6 +34,7 @@ const LINE_BY_LINE_MODE = {
       correct_line?: string;
       incorrect_line?: string;
       shown_bug: boolean;
+      line_index?: number;
       suggestions?: Array<{
         correctLine: string;
         incorrectLine: string;
@@ -45,6 +46,7 @@ const LINE_BY_LINE_MODE = {
     correctLine: data.correct_line || "",
     incorrectLine: data.incorrect_line || "",
     shownBug: data.shown_bug,
+    lineIndex: data.line_index,
     suggestions: data.suggestions || [],
   }),
 } as const;

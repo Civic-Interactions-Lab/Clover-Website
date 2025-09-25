@@ -5,13 +5,7 @@ import {
 } from "@/api/suggestion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Popover,
   PopoverContent,
@@ -23,7 +17,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useUser } from "@/context/UserContext";
 import {
   Calendar,
   ChevronDown,
@@ -43,6 +36,8 @@ import { Diff, Hunk, parseDiff } from "react-diff-view";
 import "react-diff-view/style/index.css";
 import { useParams } from "react-router-dom";
 
+const PLAY_SPEED = 1000;
+
 export default function DiffTimeline() {
   const { userId } = useParams<{ userId: string }>();
   const [diffs, setDiffs] = useState<UserDiffsResponse | null>(null);
@@ -50,12 +45,17 @@ export default function DiffTimeline() {
   const [loading, setLoading] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(1000);
   const [showPrompt, setShowPrompt] = useState(false);
   const [hasQueried, setHasQueried] = useState(false);
 
-  const [startDate, setStartDate] = useState("2025-09-01");
-  const [endDate, setEndDate] = useState("2025-09-04");
+  const today = new Date();
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+
+  const [startDate, setStartDate] = useState(
+    oneYearAgo.toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
   const [startTime, setStartTime] = useState("00:00");
   const [endTime, setEndTime] = useState("23:59");
 
@@ -71,10 +71,10 @@ export default function DiffTimeline() {
           }
           return prev + 1;
         });
-      }, playSpeed);
+      }, PLAY_SPEED);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, playSpeed, diffs]);
+  }, [isPlaying, diffs]);
 
   const fetchDiffs = async () => {
     setLoading(true);
@@ -209,7 +209,7 @@ export default function DiffTimeline() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-800"
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-600"
                 />
               </div>
               <div>
@@ -220,7 +220,7 @@ export default function DiffTimeline() {
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-800"
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-600"
                 />
               </div>
               <div>
@@ -231,7 +231,7 @@ export default function DiffTimeline() {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-800"
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-600"
                 />
               </div>
               <div>
@@ -242,7 +242,7 @@ export default function DiffTimeline() {
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-800"
+                  className="w-full p-2 border rounded-md bg-white dark:bg-gray-600"
                 />
               </div>
             </div>
@@ -302,6 +302,7 @@ export default function DiffTimeline() {
               {(() => {
                 const { groupId, step, fileName, prompt } = currentItem;
                 const [diff] = parseDiff(step.diff);
+                console.log("Rendering step:", step.event);
 
                 return (
                   <>
@@ -454,10 +455,12 @@ export default function DiffTimeline() {
 
                         <div className="flex items-center space-x-4">
                           <Badge
-                            className={`${
-                              step.event === "file_edit"
-                                ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
-                                : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                            className={`px-2 ${
+                              step.event === "SUGGESTION_LINE_ACCEPT"
+                                ? "bg-primary text-black dark:text-white"
+                                : step.event === "SUGGESTION_LINE_REJECT"
+                                  ? "bg-beta text-black dark:text-white"
+                                  : "bg-purple-900 text-white"
                             }`}
                             variant="secondary"
                           >
