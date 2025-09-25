@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
+import CustomSelect from "@/components/CustomSelect";
 
 export interface SurveyQuestion {
   id: string;
@@ -18,7 +19,9 @@ export interface SurveyQuestion {
     | "multiple_choice"
     | "multiple_select"
     | "likert"
-    | "section_title";
+    | "section_title"
+    | "slider"
+    | "nasa_tlx";
   question_number: number;
   question_text: string;
   question_options?: string[];
@@ -43,7 +46,7 @@ export interface Participant {
 }
 
 export interface SurveyAnswers {
-  [questionId: string]: string | string[];
+  [questionId: string]: string | string[] | Record<string, string>;
 }
 
 interface SurveyPreviewProps {
@@ -70,7 +73,7 @@ const SurveyPreview = ({
 
   const handleAnswerChange = (
     questionId: string,
-    answer: string | string[]
+    answer: string | string[] | Record<string, string>
   ) => {
     setAnswers((prev) => ({
       ...prev,
@@ -86,7 +89,19 @@ const SurveyPreview = ({
       .forEach((question) => {
         const answer = answers[question.id];
 
-        if (
+        if (question.question_type === "nasa_tlx") {
+          const nasaTlxAnswer = answer as Record<string, string>;
+          const nasaTlxScales = question.question_options || [];
+
+          if (
+            !nasaTlxAnswer ||
+            nasaTlxScales.some((scale) => !nasaTlxAnswer[scale])
+          ) {
+            errors.push(
+              `"${question.question_text}" - all scales must be rated`
+            );
+          }
+        } else if (
           !answer ||
           (typeof answer === "string" && answer.trim() === "") ||
           (Array.isArray(answer) && answer.length === 0)
@@ -152,6 +167,69 @@ const SurveyPreview = ({
     return { scaleOptions, leftLabel, rightLabel };
   };
 
+  const renderNasaTlxScale = (
+    questionId: string,
+    scaleData: string,
+    interactive: boolean
+  ) => {
+    // Parse scale data: "scaleName|lowLabel|highLabel"
+    const parts = scaleData.split("|");
+    const scaleName = parts[0] || "";
+    const lowLabel = parts[1] || "Low";
+    const highLabel = parts[2] || "High";
+
+    const currentAnswers =
+      (answers[questionId] as Record<string, string>) || {};
+    const currentValue = currentAnswers[scaleName];
+
+    const scaleValues = [];
+    for (let i = 0; i <= 20; i++) {
+      scaleValues.push(i);
+    }
+
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>{lowLabel}</span>
+          <span>{highLabel}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          {scaleValues.map((value) => (
+            <div key={value} className="flex flex-col items-center">
+              <button
+                type="button"
+                disabled={!interactive}
+                onClick={
+                  interactive
+                    ? () => {
+                        const updatedAnswers = {
+                          ...currentAnswers,
+                          [scaleName]: value.toString(),
+                        };
+                        handleAnswerChange(questionId, updatedAnswers);
+                      }
+                    : undefined
+                }
+                className={`w-6 h-6 border-2 flex items-center justify-center text-xs transition-colors ${
+                  interactive && currentValue === value.toString()
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : interactive
+                      ? "border-border hover:border-ring cursor-pointer"
+                      : "border-border cursor-not-allowed"
+                } ${value % 5 === 0 ? "border-b-4" : ""}`}
+              >
+                {/* Remove the number display in preview mode */}
+                {!interactive && value % 5 === 0 && (
+                  <span className="absolute mt-8 text-xs opacity-0"></span>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderQuestion = (question: SurveyQuestion) => {
     const currentAnswer = answers[question.id];
 
@@ -202,6 +280,94 @@ const SurveyPreview = ({
                   className="border-0 border-b-2 border-border rounded-none px-0 focus:border-ring bg-transparent"
                 />
               )}
+            </div>
+          </div>
+        );
+
+      case "slider":
+        const minValue = parseInt(question.question_options?.[0] || "1");
+        const maxValue = parseInt(question.question_options?.[1] || "10");
+        const minLabel = question.question_options?.[2] || "";
+        const maxLabel = question.question_options?.[3] || "";
+
+        return (
+          <div
+            key={question.id}
+            className="space-y-4 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+          >
+            <Label className="text-base font-medium text-foreground flex items-center gap-1">
+              {question.question_text}
+              {question.is_required && (
+                <span className="text-destructive text-lg">*</span>
+              )}
+            </Label>
+
+            <div className="space-y-4">
+              {/* Labels */}
+              {(minLabel || maxLabel) && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>{minLabel}</span>
+                  <span>{maxLabel}</span>
+                </div>
+              )}
+
+              {/* Slider */}
+              <div className="px-2">
+                {interactive ? (
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min={minValue}
+                      max={maxValue}
+                      value={(currentAnswer as string) || minValue.toString()}
+                      onChange={(e) =>
+                        handleAnswerChange(question.id, e.target.value)
+                      }
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      style={{
+                        background: `linear-gradient(to right, #50B498 0%, #50B498 ${
+                          ((parseInt(
+                            (currentAnswer as string) || minValue.toString()
+                          ) -
+                            minValue) /
+                            (maxValue - minValue)) *
+                          100
+                        }%, #e5e7eb ${
+                          ((parseInt(
+                            (currentAnswer as string) || minValue.toString()
+                          ) -
+                            minValue) /
+                            (maxValue - minValue)) *
+                          100
+                        }%, #e5e7eb 100%)`,
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{minValue}</span>
+                      <span className="font-semibold text-foreground">
+                        Selected: {(currentAnswer as string) || minValue}
+                      </span>
+                      <span>{maxValue}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min={minValue}
+                      max={maxValue}
+                      value={Math.floor((minValue + maxValue) / 2)}
+                      disabled
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-not-allowed slider"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{minValue}</span>
+                      <span>Preview Mode</span>
+                      <span>{maxValue}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -371,6 +537,38 @@ const SurveyPreview = ({
                 ))}
               </div>
             </div>
+          </div>
+        );
+
+      case "nasa_tlx":
+        const nasaTlxScales = question.question_options || [];
+
+        return (
+          <div
+            key={question.id}
+            className="space-y-6 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+          >
+            <Label className="text-base font-medium text-foreground flex items-center gap-1">
+              {question.question_text}
+              {question.is_required && (
+                <span className="text-destructive text-lg">*</span>
+              )}
+            </Label>
+
+            {nasaTlxScales.length > 0 ? (
+              <div className="space-y-8">
+                {nasaTlxScales.map((scaleName) => (
+                  <div key={scaleName} className="space-y-3">
+                    <h4 className="font-medium text-foreground">{scaleName}</h4>
+                    {renderNasaTlxScale(question.id, scaleName, interactive)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8 border-2 border-dashed border-border rounded-lg">
+                No scales added yet. Add scales in the editor to see them here.
+              </div>
+            )}
           </div>
         );
 
