@@ -32,6 +32,7 @@ import SuggestionDetailsView from "./pages/dashboard/ui/views/student/Suggestion
 import SurveyView from "./pages/SurveyView";
 import CreateEditSurveyView from "./pages/dashboard/ui/views/admin/CreateEditSurveyView";
 import UserEditsViewer from "./pages/dashboard/ui/views/admin/UserEditsViewer";
+import CompletedSurveyView from "./pages/dashboard/ui/components/CompletedSurveyView";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,10 @@ const App = (): JSX.Element => {
                       <Route
                         path="users/:userId/edits"
                         element={<UserEditsViewer />}
+                      />
+                      <Route
+                        path="admin-surveys/completed"
+                        element={<CompletedSurveyView />}
                       />
                     </Route>
                     <Route path="/quiz" element={<QuizPage />} />
