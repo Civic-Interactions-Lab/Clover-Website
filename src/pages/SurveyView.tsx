@@ -129,9 +129,9 @@ const SurveyView = () => {
 
   if (showSuccess || alreadySubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md pt-2">
-          <CardContent className="text-center py-8">
+      <div className="min-h-screen flex items-center justify-center space-x-6">
+        <Card className="max-w-2xl pt-2 gap-3">
+          <CardContent className="text-center py-8 m-8">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Survey Submitted</h2>
             <p className="text-muted-foreground">
@@ -140,6 +140,21 @@ const SurveyView = () => {
             </p>
           </CardContent>
         </Card>
+        {survey.type === "POST_SURVEY" && (
+          <div className="max-w-4xl pt-2 gap-3 w-1/2">
+            <div className="flex-1 flex flex-col justify-center items-center py-8">
+              <h2 className="text-xl font-semibold mb-2">
+                Would you like to do a one on one session?
+              </h2>
+              <p className="text-muted-foreground">Schedule Here</p>
+              <iframe
+                src={`https://calendly.com/ian-tyler-applebaum/clover-post-interview?utm_campaign=${user.pid + "|" + user.first_name}&utm_source=CLOVER`}
+                width="100%"
+                height="700px"
+              ></iframe>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
