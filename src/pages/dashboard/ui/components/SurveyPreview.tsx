@@ -55,6 +55,8 @@ interface SurveyPreviewProps {
   userId?: string;
   className?: string;
   onSuccess?: () => void;
+  readOnly?: boolean;
+  initialAnswers?: SurveyAnswers;
 }
 
 const SurveyPreview = ({
@@ -63,13 +65,15 @@ const SurveyPreview = ({
   userId,
   className = "",
   onSuccess,
+  readOnly = false,
+  initialAnswers = {},
 }: SurveyPreviewProps) => {
-  const [answers, setAnswers] = useState<SurveyAnswers>({});
+  const [answers, setAnswers] = useState<SurveyAnswers>(initialAnswers);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   // Form is interactive only if userId is provided
-  const interactive = !!userId;
+  const interactive = !!userId && !readOnly;
 
   const handleAnswerChange = (
     questionId: string,
@@ -211,21 +215,27 @@ const SurveyPreview = ({
                     : undefined
                 }
                 className={`w-6 h-6 border-2 flex items-center justify-center text-xs transition-colors ${
-                  interactive && currentValue === value.toString()
-                    ? "border-primary bg-primary text-primary-foreground"
+                  currentValue === value.toString()
+                    ? "border-primary bg-primary text-foreground"
                     : interactive
                       ? "border-border hover:border-ring cursor-pointer"
                       : "border-border cursor-not-allowed"
                 } ${value % 5 === 0 ? "border-b-4" : ""}`}
               >
-                {/* Remove the number display in preview mode */}
-                {!interactive && value % 5 === 0 && (
-                  <span className="absolute mt-8 text-xs opacity-0"></span>
+                {/* Show selected value in readonly mode */}
+                {readOnly && currentValue === value.toString() && (
+                  <span className="pt-6 mt-8 text-xs font-medium">{value}</span>
                 )}
               </button>
             </div>
           ))}
         </div>
+        {/* Show selected value clearly in readonly mode */}
+        {readOnly && currentValue && (
+          <div className="text-center text-sm font-medium text-foreground">
+            Selected: {currentValue}
+          </div>
+        )}
       </div>
     );
   };
@@ -274,11 +284,17 @@ const SurveyPreview = ({
                   className="border-0 border-b-2 border-border rounded-none px-0 focus:border-ring bg-transparent min-h-[60px]"
                 />
               ) : (
-                <Input
-                  disabled
-                  placeholder="Your answer"
-                  className="border-0 border-b-2 border-border rounded-none px-0 focus:border-ring bg-transparent"
-                />
+                <div className="border-0 border-b-2 border-border rounded-none px-0 bg-transparent min-h-[60px] py-2">
+                  {currentAnswer ? (
+                    <div className="text-foreground whitespace-pre-wrap">
+                      {currentAnswer as string}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground italic">
+                      No answer provided
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -289,6 +305,12 @@ const SurveyPreview = ({
         const maxValue = parseInt(question.question_options?.[1] || "10");
         const minLabel = question.question_options?.[2] || "";
         const maxLabel = question.question_options?.[3] || "";
+        const sliderValue =
+          readOnly && currentAnswer
+            ? parseInt(currentAnswer as string)
+            : interactive && currentAnswer
+              ? parseInt(currentAnswer as string)
+              : Math.floor((minValue + maxValue) / 2);
 
         return (
           <div
@@ -313,60 +335,40 @@ const SurveyPreview = ({
 
               {/* Slider */}
               <div className="px-2">
-                {interactive ? (
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min={minValue}
-                      max={maxValue}
-                      value={(currentAnswer as string) || minValue.toString()}
-                      onChange={(e) =>
-                        handleAnswerChange(question.id, e.target.value)
-                      }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #50B498 0%, #50B498 ${
-                          ((parseInt(
-                            (currentAnswer as string) || minValue.toString()
-                          ) -
-                            minValue) /
-                            (maxValue - minValue)) *
-                          100
-                        }%, #e5e7eb ${
-                          ((parseInt(
-                            (currentAnswer as string) || minValue.toString()
-                          ) -
-                            minValue) /
-                            (maxValue - minValue)) *
-                          100
-                        }%, #e5e7eb 100%)`,
-                      }}
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{minValue}</span>
-                      <span className="font-semibold text-foreground">
-                        Selected: {(currentAnswer as string) || minValue}
-                      </span>
-                      <span>{maxValue}</span>
-                    </div>
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min={minValue}
+                    max={maxValue}
+                    value={sliderValue}
+                    onChange={
+                      interactive
+                        ? (e) => handleAnswerChange(question.id, e.target.value)
+                        : undefined
+                    }
+                    disabled={!interactive}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none slider"
+                    style={{
+                      background: `linear-gradient(to right, #50B498 0%, #50B498 ${
+                        ((sliderValue - minValue) / (maxValue - minValue)) * 100
+                      }%, #e5e7eb ${
+                        ((sliderValue - minValue) / (maxValue - minValue)) * 100
+                      }%, #e5e7eb 100%)`,
+                      cursor: interactive ? "pointer" : "not-allowed",
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{minValue}</span>
+                    <span className="font-semibold text-foreground">
+                      {readOnly && currentAnswer
+                        ? `Answer: ${currentAnswer}`
+                        : interactive
+                          ? `Selected: ${currentAnswer || minValue}`
+                          : "Preview Mode"}
+                    </span>
+                    <span>{maxValue}</span>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min={minValue}
-                      max={maxValue}
-                      value={Math.floor((minValue + maxValue) / 2)}
-                      disabled
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-not-allowed slider"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{minValue}</span>
-                      <span>Preview Mode</span>
-                      <span>{maxValue}</span>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
@@ -386,7 +388,7 @@ const SurveyPreview = ({
             </Label>
             <RadioGroup
               disabled={!interactive}
-              value={interactive ? (currentAnswer as string) || "" : ""}
+              value={(currentAnswer as string) || ""}
               onValueChange={
                 interactive
                   ? (value) => handleAnswerChange(question.id, value)
@@ -407,17 +409,25 @@ const SurveyPreview = ({
                   />
                   <Label
                     htmlFor={`${question.id}-${optIndex}`}
-                    className={`text-foreground flex-1 ${interactive ? "cursor-pointer" : "cursor-not-allowed"}`}
+                    className={`text-foreground flex-1 ${interactive ? "cursor-pointer" : "cursor-not-allowed"} ${
+                      readOnly && currentAnswer === option ? "font-medium" : ""
+                    }`}
                   >
                     {option}
                   </Label>
                 </div>
               ))}
             </RadioGroup>
+            {readOnly && !currentAnswer && (
+              <div className="text-muted-foreground italic text-sm">
+                No answer provided
+              </div>
+            )}
           </div>
         );
 
       case "multiple_select":
+        const selectedOptions = (currentAnswer as string[]) || [];
         return (
           <div
             key={question.id}
@@ -441,16 +451,11 @@ const SurveyPreview = ({
                   <Checkbox
                     id={`${question.id}-${optIndex}`}
                     disabled={!interactive}
-                    checked={
-                      interactive
-                        ? ((currentAnswer as string[]) || []).includes(option)
-                        : false
-                    }
+                    checked={selectedOptions.includes(option)}
                     onCheckedChange={
                       interactive
                         ? (checked) => {
-                            const currentSelections =
-                              (currentAnswer as string[]) || [];
+                            const currentSelections = selectedOptions;
                             if (checked) {
                               handleAnswerChange(question.id, [
                                 ...currentSelections,
@@ -471,13 +476,22 @@ const SurveyPreview = ({
                   />
                   <Label
                     htmlFor={`${question.id}-${optIndex}`}
-                    className={`text-foreground flex-1 ${interactive ? "cursor-pointer" : "cursor-not-allowed"}`}
+                    className={`text-foreground flex-1 ${interactive ? "cursor-pointer" : "cursor-not-allowed"} ${
+                      readOnly && selectedOptions.includes(option)
+                        ? "font-medium"
+                        : ""
+                    }`}
                   >
                     {option}
                   </Label>
                 </div>
               ))}
             </div>
+            {readOnly && selectedOptions.length === 0 && (
+              <div className="text-muted-foreground italic text-sm">
+                No answers selected
+              </div>
+            )}
           </div>
         );
 
@@ -524,7 +538,7 @@ const SurveyPreview = ({
                           : undefined
                       }
                       className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors ${
-                        interactive && currentAnswer === option.value
+                        currentAnswer === option.value
                           ? "border-primary bg-primary text-primary-foreground"
                           : interactive
                             ? "border-border hover:border-ring cursor-pointer"
@@ -536,6 +550,11 @@ const SurveyPreview = ({
                   </div>
                 ))}
               </div>
+              {readOnly && !currentAnswer && (
+                <div className="text-center text-muted-foreground italic text-sm">
+                  No rating provided
+                </div>
+              )}
             </div>
           </div>
         );
@@ -606,16 +625,23 @@ const SurveyPreview = ({
             <div className="flex-1 space-y-2">
               <CardTitle className="text-3xl font-bold text-foreground">
                 {survey.title || "Untitled Survey"}
+                {readOnly && (
+                  <span className="ml-3 text-lg font-normal text-muted-foreground">
+                    (Response View)
+                  </span>
+                )}
               </CardTitle>
               {survey.description && (
                 <p className="text-muted-foreground text-lg leading-relaxed">
                   {survey.description}
                 </p>
               )}
-              <div className="flex items-center text-sm text-destructive">
-                <span className="text-destructive mr-1">*</span>
-                <span>Required</span>
-              </div>
+              {!readOnly && (
+                <div className="flex items-center text-sm text-destructive">
+                  <span className="text-destructive mr-1">*</span>
+                  <span>Required</span>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -634,7 +660,9 @@ const SurveyPreview = ({
                   <div className="space-y-2">
                     <Label className="text-base font-medium text-foreground flex items-center gap-1">
                       Username
-                      <span className="text-destructive text-lg">*</span>
+                      {!readOnly && (
+                        <span className="text-destructive text-lg">*</span>
+                      )}
                     </Label>
                     <Input
                       value={user?.first_name || "demo_user"}
@@ -645,7 +673,9 @@ const SurveyPreview = ({
                   <div className="space-y-2">
                     <Label className="text-base font-medium text-foreground flex items-center gap-1">
                       Participant ID
-                      <span className="text-destructive text-lg">*</span>
+                      {!readOnly && (
+                        <span className="text-destructive text-lg">*</span>
+                      )}
                     </Label>
                     <Input
                       value={user?.pid || "PID123456"}
@@ -678,7 +708,7 @@ const SurveyPreview = ({
             </div>
 
             {/* Submit Section */}
-            {survey.questions.length > 0 && (
+            {!readOnly && survey.questions.length > 0 && (
               <Card className="bg-card border border-border">
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
