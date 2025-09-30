@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import SurveyView from "@/pages/SurveyView";
 import { useNavigate } from "react-router-dom";
+import DownloadFormattedFile from "@/components/DownloadFormattedFile";
 
 type SurveyResponse = {
   id: string;
@@ -49,6 +49,7 @@ const ViewAllSurveys = () => {
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [pidFilter, setPidFilter] = useState<string>("");
+  const [questionsMap, setQuestionsMap] = useState<Record<string, any[]>>({});
 
   const navigate = useNavigate();
 
@@ -117,8 +118,92 @@ const ViewAllSurveys = () => {
     loadSurveyAndUser();
   }, [selectedSurveyId, pidFilter]);
 
+  useEffect(() => {
+    const loadQuestions = async () => {
+      if (surveyResponses.length === 0) return;
+
+      const surveyIds = [
+        ...new Set(surveyResponses.map((r) => r.survey?.id).filter(Boolean)),
+      ];
+
+      const { data, error } = await supabase
+        .from("survey_questions")
+        .select("*")
+        .in("survey_id", surveyIds)
+        .order("question_number", { ascending: true });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const grouped = (data ?? []).reduce(
+        (acc, question) => {
+          if (!acc[question.survey_id]) {
+            acc[question.survey_id] = [];
+          }
+          acc[question.survey_id].push(question);
+          return acc;
+        },
+        {} as Record<string, any[]>
+      );
+
+      setQuestionsMap(grouped);
+    };
+
+    loadQuestions();
+  }, [surveyResponses]);
+
+  // Add this temporarily to debug
+  console.log("Sample answers:", surveyResponses[0]?.answers);
+
+  const formatDataForDownload = () => {
+    return surveyResponses.map((response, index) => {
+      const surveyId = response.survey?.id;
+      const questions = surveyId ? questionsMap[surveyId] || [] : [];
+
+      const row: Record<string, any> = {
+        "No.": index + 1,
+        "User Name": response.user?.first_name || "N/A",
+        PID: response.user?.pid || "N/A",
+        "Survey Type": response.survey?.type || "N/A",
+        "Survey Title": response.survey?.title || "N/A",
+      };
+
+      questions.forEach((question) => {
+        const questionId = question.id;
+        const answer = response.answers?.[questionId];
+
+        if (answer === null || answer === undefined) {
+          row[question.question_text] = "No Answer";
+        } else if (typeof answer === "object" && answer !== null) {
+          const values = Object.values(answer);
+          row[question.question_text] =
+            values.length > 0 ? values[0] : "No Answer";
+        } else {
+          row[question.question_text] = answer;
+        }
+      });
+
+      return row;
+    });
+  };
+
+  const getDownloadFilename = () => {
+    const surveyType = surveyResponses[0]?.survey?.type || "all-surveys";
+    const date = new Date().toISOString().split("T")[0];
+    return `survey-responses-${surveyType}-${date}`;
+  };
+
   return (
     <div className="space-y-4">
+      {/* Download Button */}
+      <div className="flex justify-end items-center">
+        <DownloadFormattedFile
+          data={formatDataForDownload()}
+          filename={getDownloadFilename()}
+        />
+      </div>
       {/* Filter Card */}
       <Card className="p-4 flex flex-col md:flex-row gap-4 items-center">
         {/* Survey Dropdown */}

@@ -6,7 +6,6 @@ import SurveyPreview, {
 } from "./dashboard/ui/components/SurveyPreview";
 import { supabase } from "@/supabaseClient";
 import { AlertTriangle, CheckCircle } from "lucide-react";
-import { CopyButton } from "./Download";
 
 const SurveyView = () => {
   const [survey, setSurvey] = useState<Survey | null>(null);
@@ -149,7 +148,7 @@ const SurveyView = () => {
               </h2>
               <p className="text-muted-foreground">Schedule Here</p>
               <iframe
-                src={`https://calendly.com/ian-tyler-applebaum/clover-post-interview?utm_campaign=${user.pid + "|" + user.pid}&utm_source=CLOVER`}
+                src={`https://calendly.com/ian-tyler-applebaum/clover-post-interview?utm_campaign=${user.pid + "|" + user.first_name}&utm_source=CLOVER`}
                 width="100%"
                 height="700px"
               ></iframe>

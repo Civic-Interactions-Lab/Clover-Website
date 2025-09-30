@@ -20,8 +20,6 @@ import UserAvatar from "@/components/UserAvatar";
 import { Calendar, Edit, Info, Mail, Settings, User2, X } from "lucide-react";
 import Loading from "@/components/Loading";
 import { getUserData } from "@/api/user";
-import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
 import { useUser } from "@/context/UserContext";
 import TypingCharts from "../../components/TypingCharts";
 import ActivityStatsSection from "../../components/ActivityStatsSection";
@@ -29,7 +27,7 @@ import ClassesDropdownMenu from "../../components/ClassesDropdownMenu";
 import { useUserClasses } from "@/hooks/useUserClasses";
 import ActivityStatsCards from "@/pages/profile/ui/components/ActivityStatsCards";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
-import UserDataDownload from "@/components/UserDataDownload";
+import UserDataDownloadButton from "../../components/UserDataDownloadButton";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -226,10 +224,11 @@ const UserDetailsView = () => {
       <div className="space-y-6 max-w-7xl mx-auto px-8">
         {/* User Details Section */}
         <div className="flex items-center justify-between">
-          <UserDataDownload userId={userId!} />
           <Button onClick={() => handleEditViewClick(userId!)}>
             View User Edits
           </Button>
+
+          <UserDataDownloadButton user={displayUser!} />
         </div>
         <Card className="overflow-hidden">
           {/* Header */}

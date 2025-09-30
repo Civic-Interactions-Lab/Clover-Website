@@ -2,11 +2,12 @@ import { UserRole } from "@/types/user";
 import { useUser } from "@/context/UserContext";
 import { useClassActivity } from "@/pages/dashboard/hooks/useClassActivity";
 import { useInstructorClasses } from "@/hooks/useInstructorClasses";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import ClassesDropdownMenu from "@/pages/dashboard/ui/components/ClassesDropdownMenu";
 import Loading from "@/components/Loading";
 import { useLocation, useNavigate } from "react-router-dom";
 import ActivityStatsSection from "../../components/ActivityStatsSection";
+import DownloadFormattedFile from "@/components/DownloadFormattedFile";
 
 const InstructorStatsView = ({ description }: { description?: string }) => {
   const { userData } = useUser();
@@ -30,6 +31,23 @@ const InstructorStatsView = ({ description }: { description?: string }) => {
   const selectedClassTitle =
     allClassOptions.find((classItem) => classItem.id === selectedClassId)
       ?.classTitle ?? "";
+
+  const formatDataForDownload = useMemo(() => {
+    const activityToExport =
+      selectedClassId === "all" ? allActivity : classActivity;
+
+    return activityToExport.map((activity, index) => ({
+      "No.": index + 1,
+      "User ID": activity.userId,
+      Event: activity.event,
+      "Class Title": activity.classTitle || "N/A",
+      "Class Code": activity.classCode || "N/A",
+      "Duration (seconds)": activity.duration,
+      "Has Bug": activity.hasBug ? "Yes" : "No",
+      Type: activity.type || "N/A",
+      "Created At": new Date(activity.createdAt).toLocaleString(),
+    }));
+  }, [allActivity, classActivity, selectedClassId]);
 
   if (loading) {
     return (
@@ -66,6 +84,13 @@ const InstructorStatsView = ({ description }: { description?: string }) => {
         showRealtimeToggle={false}
         showLearningProgress={false}
       />
+
+      <div className="flex justify-end items-center">
+        <DownloadFormattedFile
+          data={formatDataForDownload}
+          filename={`class-activity-${selectedClassTitle || "all"}-${new Date().toISOString().split("T")[0]}`}
+        />
+      </div>
     </div>
   );
 };
