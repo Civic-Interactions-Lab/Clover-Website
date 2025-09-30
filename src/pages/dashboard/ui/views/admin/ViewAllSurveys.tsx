@@ -50,7 +50,6 @@ const ViewAllSurveys = () => {
   const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
   const [pidFilter, setPidFilter] = useState<string>("");
   const [questionsMap, setQuestionsMap] = useState<Record<string, any[]>>({});
-  const [downloadFormat, setDownloadFormat] = useState<"csv" | "json">("csv");
 
   const navigate = useNavigate();
 
@@ -155,12 +154,14 @@ const ViewAllSurveys = () => {
     loadQuestions();
   }, [surveyResponses]);
 
+  // Add this temporarily to debug
+  console.log("Sample answers:", surveyResponses[0]?.answers);
+
   const formatDataForDownload = () => {
     return surveyResponses.map((response, index) => {
       const surveyId = response.survey?.id;
       const questions = surveyId ? questionsMap[surveyId] || [] : [];
 
-      // Start with user and survey info
       const row: Record<string, any> = {
         "No.": index + 1,
         "User Name": response.user?.first_name || "N/A",
@@ -169,15 +170,29 @@ const ViewAllSurveys = () => {
         "Survey Title": response.survey?.title || "N/A",
       };
 
-      // Add each question as a column with the answer
       questions.forEach((question) => {
         const questionId = question.id;
-        const answer = response.answers?.[questionId] || "No Answer";
-        row[question.question_text] = answer;
+        const answer = response.answers?.[questionId];
+
+        if (answer === null || answer === undefined) {
+          row[question.question_text] = "No Answer";
+        } else if (typeof answer === "object" && answer !== null) {
+          const values = Object.values(answer);
+          row[question.question_text] =
+            values.length > 0 ? values[0] : "No Answer";
+        } else {
+          row[question.question_text] = answer;
+        }
       });
 
       return row;
     });
+  };
+
+  const getDownloadFilename = () => {
+    const surveyType = surveyResponses[0]?.survey?.type || "all-surveys";
+    const date = new Date().toISOString().split("T")[0];
+    return `survey-responses-${surveyType}-${date}`;
   };
 
   return (
@@ -186,7 +201,7 @@ const ViewAllSurveys = () => {
       <div className="flex justify-end items-center">
         <DownloadFormattedFile
           data={formatDataForDownload()}
-          filename={`survey-responses-${new Date().toISOString().split("T")[0]}`}
+          filename={getDownloadFilename()}
         />
       </div>
       {/* Filter Card */}

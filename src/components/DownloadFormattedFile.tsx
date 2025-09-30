@@ -8,6 +8,7 @@ import CustomSelect from "./CustomSelect";
 interface DownloadFormattedFileProps {
   data: any[];
   filename?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -18,6 +19,7 @@ interface DownloadFormattedFileProps {
 const DownloadFormattedFile = ({
   data,
   filename = "data",
+  disabled = false,
 }: DownloadFormattedFileProps) => {
   const [format, setFormat] = useState<"csv" | "json">("csv");
 
@@ -58,6 +60,7 @@ const DownloadFormattedFile = ({
                    text-white font-semibold py-3 px-8 rounded-xl
                    transition-all duration-200 hover:scale-105 hover:shadow-lg
                    border-0"
+        disabled={disabled}
       >
         <div className="flex items-center gap-2">
           <Download className="w-4 h-4" />
