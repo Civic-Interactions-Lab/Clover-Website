@@ -25,6 +25,7 @@ import ClassesAdministrationView from "@/pages/dashboard/ui/views/admin/ClassesA
 import AppAnalyticsView from "@/pages/dashboard/ui/views/dev/AppAnalyticsView";
 import StudentQuizView from "@/pages/dashboard/ui/views/student/StudentQuizView";
 import ErrorAnalyticsView from "@/pages/dashboard/ui/views/dev/ErrorAnalyticsView";
+import ViewAllSurveys from "@/pages/dashboard/ui/views/admin/ViewAllSurveys";
 
 export type SideBarItem = {
   id: string;
@@ -164,6 +165,15 @@ export const sidebarItems: SideBarItem[] = [
     subheading: "Administration",
     roles: ADMIN,
     dashboardView: ClassesAdministrationView,
+  },
+  {
+    id: "admin-surveys",
+    icon: FileText,
+    name: "Surveys",
+    title: "Survey Management",
+    subheading: "Administration",
+    roles: ADMIN,
+    dashboardView: ViewAllSurveys,
   },
 
   // Development

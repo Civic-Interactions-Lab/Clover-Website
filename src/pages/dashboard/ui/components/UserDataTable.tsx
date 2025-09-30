@@ -42,6 +42,8 @@ const UsersDataTable = () => {
     handleSearch,
   } = useAllUsersWithActivityAndSearch();
 
+  const userIds = users.map((user) => user.id);
+
   useEffect(() => {
     let searchTerms = [];
 
@@ -158,11 +160,11 @@ const UsersDataTable = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-2 my-4">
+      <div className="flex items-center justify-between gap-2 my-4">
         <UserDataSearchFilters
           nameFilter={nameFilter}
           setNameFilter={setNameFilter}
-          gridClassName="w-full md:w-1/2 lg:w-1/3"
+          gridClassName="w-full md:w-1/2 lg:w-1/3 min-w-[250px]"
         />
       </div>
 
