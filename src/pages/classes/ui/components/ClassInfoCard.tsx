@@ -26,7 +26,7 @@ export const ClassInfoCard = ({ classInfo }: ClassCardProps) => {
   } = classInfo;
 
   const handleCardClick = () => {
-    navigate(`/classes/${id}`);
+    navigate(`/dashboard/user-classes/${id}`);
   };
 
   return (

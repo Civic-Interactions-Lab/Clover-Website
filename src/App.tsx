@@ -1,4 +1,10 @@
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  ScrollRestoration,
+} from "react-router-dom";
 import "./index.css";
 import RootLayout from "./RootLayout";
 import Dashboard from "./pages/dashboard/ui/layout/Dashboard";
@@ -82,14 +88,30 @@ const App = (): JSX.Element => {
                         path="admin-surveys/completed"
                         element={<CompletedSurveyView />}
                       />
+                      <Route
+                        path="admin-surveys/consent"
+                        element={<CreateEditConsentView />}
+                      />
+                      <Route
+                        path="admin-surveys/survey/:surveyId"
+                        element={<CreateEditSurveyView />}
+                      />
+                      <Route
+                        path="user-register-classes/classes/:classId"
+                        element={<ClassDetailsView />}
+                      />
+                      <Route
+                        path="user-logs/suggestion-details/"
+                        element={<SuggestionDetailsView />}
+                      />
+                      <Route
+                        path="user-classes/:classId"
+                        element={<ClassDetailsView />}
+                      />
                     </Route>
                     <Route path="/quiz" element={<QuizPage />} />
                     <Route path="/settings" element={<SettingsView />} />
                     <Route path="/profile" element={<Profile />} />
-                    <Route
-                      path="/classes/:classId"
-                      element={<ClassDetailsView />}
-                    />
                     <Route
                       path="/classes/:classId/edit"
                       element={<ClassCreateEditView />}
@@ -97,19 +119,6 @@ const App = (): JSX.Element => {
                     <Route
                       path="/classes/create"
                       element={<ClassCreateEditView />}
-                    />
-
-                    <Route
-                      path="/suggestion-details"
-                      element={<SuggestionDetailsView />}
-                    />
-                    <Route
-                      path="/consent"
-                      element={<CreateEditConsentView />}
-                    />
-                    <Route
-                      path="/survey/:surveyId"
-                      element={<CreateEditSurveyView />}
                     />
                   </Route>
                   {/* Public Routes */}

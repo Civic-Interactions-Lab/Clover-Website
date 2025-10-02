@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { getSuggestionByModeAndId } from "@/api/suggestion";
 import Loading from "@/components/Loading";
-import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
 import {
   UserActivityLogItem,
   SuggestionData,
@@ -27,6 +25,8 @@ import {
 import { UserMode } from "@/types/user";
 import { Badge } from "@/components/ui/badge";
 import CodeDiffViewer from "@/components/CodeDiffViewer";
+
+type OutletContextType = { scrollRef: React.RefObject<HTMLDivElement> };
 
 const SuggestionDetailsView = () => {
   const location = useLocation();
@@ -141,6 +141,15 @@ const SuggestionDetailsView = () => {
     currentLogItem.event.includes("ACCEPT") ||
     currentLogItem.event.includes("accept");
   const isCorrect = correctness === "Correct";
+
+  const { scrollRef } = useOutletContext<OutletContextType>();
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 1, behavior: "smooth" });
+      console.log("test");
+    }
+  }, []);
 
   const renderSuggestionContent = () => {
     if (!suggestionDetail) return null;
@@ -332,7 +341,6 @@ const SuggestionDetailsView = () => {
 
   return (
     <>
-      <NavBar />
       <div className="min-h-screen py-24 px-8">
         <div className="max-w-7xl mx-auto space-y-12">
           {/* Header */}
@@ -540,7 +548,6 @@ const SuggestionDetailsView = () => {
           )}
         </div>
       </div>
-      <Footer />
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { UserRole } from "@/types/user";
 import DashboardSidebar from "@/pages/dashboard/ui/components/DashboardSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -39,6 +39,7 @@ const Dashboard = () => {
   const title = currentSidebarItem?.title || "Dashboard";
   const description =
     currentSidebarItem?.description || "Welcome to your dashboard";
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <SidebarProvider>
@@ -51,13 +52,16 @@ const Dashboard = () => {
           onRoleChange={handleRoleChange}
           userRole={userData?.role}
         />
-        <main className="flex-1 bg-background/80 dark:bg-[#0a0a0a] overflow-auto">
+        <main
+          ref={scrollRef}
+          className="flex-1 bg-background/80 dark:bg-[#0a0a0a] overflow-auto"
+        >
           <DashboardHeader title={title} role={effectiveRole} />
           <div className="w-full max-w-7xl mx-auto px-6">
             {ActiveComponentView ? (
               <ActiveComponentView description={description} />
             ) : (
-              <Outlet />
+              <Outlet context={{ scrollRef }} />
             )}
           </div>
           <div className="h-32" />

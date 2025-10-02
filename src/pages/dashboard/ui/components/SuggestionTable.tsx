@@ -75,13 +75,14 @@ export const SuggestionTable = ({
   }, [logItems, eventFilter, isAcceptEvent]);
 
   const handleRowClick = (logItem: UserActivityLogItem, index: number) => {
-    navigate("/suggestion-details", {
+    navigate("/dashboard/user-logs/suggestion-details", {
       state: {
         logItem,
         logItems: filteredLogItems, // Use filtered items for navigation context
         currentIndex: index,
         mode,
         correctness: getDecisionCorrectness(logItem),
+        title: "Code Suggestion Details",
       },
     });
   };

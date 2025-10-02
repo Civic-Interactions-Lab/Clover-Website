@@ -87,21 +87,21 @@ const ClassesTable = ({
     }
 
     if (classData.id) {
-      navigate(`/classes/${classData.id}`);
+      navigate(`/dashboard/user-register-classes/classes/${classData.id}`);
     }
   };
 
   const handleViewDetails = (classData: ClassData, event: React.MouseEvent) => {
     event.stopPropagation();
     if (classData.id) {
-      navigate(`/classes/${classData.id}`);
+      navigate(`/dashboard/user-register-classes/classes/${classData.id}`);
     }
   };
 
   const handleEditClass = (classData: ClassData, event: React.MouseEvent) => {
     event.stopPropagation();
     if (classData.id) {
-      navigate(`/classes/${classData.id}/edit`);
+      navigate(`/dashboard/user-register-classes/classes/${classData.id}/edit`);
     }
   };
 

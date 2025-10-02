@@ -20,8 +20,6 @@ import UserAvatar from "@/components/UserAvatar";
 import { Calendar, Edit, Info, Mail, Settings, User2, X } from "lucide-react";
 import Loading from "@/components/Loading";
 import { getUserData } from "@/api/user";
-import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
 import { useUser } from "@/context/UserContext";
 import TypingCharts from "../../components/TypingCharts";
 import ActivityStatsSection from "../../components/ActivityStatsSection";

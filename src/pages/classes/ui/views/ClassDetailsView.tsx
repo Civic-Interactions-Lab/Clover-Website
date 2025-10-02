@@ -1,5 +1,4 @@
 import { ClassActionDialog } from "@/pages/classes/ui/components/ClassActionDialog";
-import { FloatingLogo } from "@/components/CloverLogo";
 import TagBadge from "@/components/TagBadge";
 import { Button } from "@/components/ui/button";
 import UserInfoItem from "@/components/UserInfoItem";
@@ -152,9 +151,7 @@ const ClassDetailsView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <FloatingLogo onClick={() => navigate("/dashboard")} />
-
+    <div className="min-h-screen bg-background/80 dark:bg-[#0a0a0a]">
       <ClassActionDialog
         isOpen={classActionDialog.isOpen}
         isLoading={classActionDialog.isLoading}
