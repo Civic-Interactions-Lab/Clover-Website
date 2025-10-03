@@ -17,6 +17,7 @@ import ResponseTimeBarChart from "./ResponseTimeBarChart";
 import AccuracyTimeLineChart from "./AccuracyTimeLineChart";
 import LearningProgressChart from "./LearningProgressChart";
 import ResponseTimeLineChart from "./ResponseTimeLineChart";
+import MinuteDecisionChart from "./MinuteDecisionChart";
 
 interface ActivityStatsSectionProps {
   // Data props - passed from parent
@@ -198,6 +199,11 @@ const ActivityStatsSection = ({
         />
         <AccuracyTimeLineChart userActivity={responseTimeData} />
       </div>
+
+      <MinuteDecisionChart
+        activities={chartData}
+        title="Decisions Per Minute"
+      />
 
       {/* Learning Progress Chart - conditionally shown */}
       {showLearningProgress && role === UserRole.STUDENT && (
