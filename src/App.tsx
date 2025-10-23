@@ -33,6 +33,7 @@ import SurveyView from "./pages/SurveyView";
 import CreateEditSurveyView from "./pages/dashboard/ui/views/admin/CreateEditSurveyView";
 import UserEditsViewer from "./pages/dashboard/ui/views/admin/UserEditsViewer";
 import CompletedSurveyView from "./pages/dashboard/ui/components/CompletedSurveyView";
+import ClassStatView from "./pages/dashboard/ui/views/admin/ClassStatView";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,10 @@ const App = (): JSX.Element => {
                       <Route
                         path="admin-surveys/completed"
                         element={<CompletedSurveyView />}
+                      />
+                      <Route
+                        path="admin-classes/:instructorId/:classId"
+                        element={<ClassStatView />}
                       />
                     </Route>
                     <Route path="/quiz" element={<QuizPage />} />

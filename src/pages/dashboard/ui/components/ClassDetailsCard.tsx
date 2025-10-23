@@ -1,5 +1,5 @@
 import { updateClassStudentsSettings } from "@/api/classes";
-import { User, UserMode } from "@/types/user";
+import { ClassData, User, UserMode } from "@/types/user";
 import {
   InfoCardItem,
   InfoCardTitle,
@@ -32,20 +32,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
-interface ClassData {
-  id: string;
-  classTitle: string;
-  classCode: string;
-  classHexColor?: string;
-  classDescription?: string;
-  classImageCover?: string;
-  instructorId?: string;
-  instructorName?: string;
-  studentCount: number;
-  students?: User[];
-  createdAt: string;
-}
 
 interface ClassDetailsCardProps {
   classData: ClassData;
@@ -171,7 +157,7 @@ export const ClassDetailsCard = ({
 
     try {
       await updateClassStudentsSettings(
-        classData.id,
+        classData.id ?? "",
         studentIds,
         classSettings
       );
@@ -289,7 +275,11 @@ export const ClassDetailsCard = ({
                   })}
                   icon={Calendar}
                 />
-                <InfoField label="Class ID" value={classData.id} icon={Info} />
+                <InfoField
+                  label="Class ID"
+                  value={classData.id ?? ""}
+                  icon={Info}
+                />
               </CardContent>
             </Card>
 

@@ -14,8 +14,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Users } from "lucide-react";
 import { User } from "@/types/user";
 import UserDataSearchFilters from "../../../dashboard/ui/components/UserDataSearchFilter";
-import { ClassDetailsCard } from "../../../dashboard/ui/components/ClassDetailsCard";
 import { formatActivityTimestamp } from "@/utils/timeConverter";
+import { useNavigate } from "react-router-dom";
 
 interface ClassData {
   id: string;
@@ -32,10 +32,11 @@ interface ClassData {
 }
 
 const ClassesDataTable = () => {
-  const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
   const [nameFilter, setNameFilter] = useState("");
 
   const { classes, isLoading, error } = useAllClassesWithSearch("", true);
+
+  const navigate = useNavigate();
 
   const filteredClasses = useMemo(() => {
     return classes.filter((classItem) => {
@@ -55,13 +56,8 @@ const ClassesDataTable = () => {
     });
   }, [classes, nameFilter]);
 
-  const handleRowClick = (classId: string) => {
-    const classData = classes.find((cls) => cls.id === classId);
-    setSelectedClass(classData as ClassData);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedClass(null);
+  const handleRowClick = (instructorId: string, classId: string) => {
+    navigate(`${instructorId}/${classId}`);
   };
 
   if (error) {
@@ -156,7 +152,12 @@ const ClassesDataTable = () => {
                   key={classItem.id}
                   classData={classItem as ClassData}
                   index={startIndex + index}
-                  onClick={() => handleRowClick(classItem.id as string)}
+                  onClick={() =>
+                    handleRowClick(
+                      classItem.instructorId as string,
+                      classItem.id as string
+                    )
+                  }
                 />
               ))}
             </div>
@@ -188,7 +189,12 @@ const ClassesDataTable = () => {
                       key={`${classItem.id}-${index}`}
                       classData={classItem as ClassData}
                       index={startIndex + index}
-                      onClick={() => handleRowClick(classItem.id as string)}
+                      onClick={() =>
+                        handleRowClick(
+                          classItem.instructorId as string,
+                          classItem.id as string
+                        )
+                      }
                     />
                   ))}
                 </TableBody>
@@ -197,13 +203,6 @@ const ClassesDataTable = () => {
           )}
         />
       </div>
-
-      {selectedClass && (
-        <ClassDetailsCard
-          classData={selectedClass}
-          onClose={handleCloseModal}
-        />
-      )}
     </>
   );
 };
