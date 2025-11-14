@@ -116,84 +116,87 @@ const Construction = () => {
             </div>
           ) : (
             <Card className="p-8 max-w-md mx-auto bg-gray-100 border-none">
-              <div className="space-y-6">
-                <div className="text-center">
-                  <Lock className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Early Access
-                  </h2>
-                  <p className="text-gray-600 mt-2">
-                    Enter your credentials to continue
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-gray-600" htmlFor="username">
-                      Username
-                    </Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="username"
-                        type="text"
-                        placeholder="Enter username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="pl-10 text-black"
-                        required
-                      />
-                    </div>
+              <form>
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <Lock className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      Early Access
+                    </h2>
+                    <p className="text-gray-600 mt-2">
+                      Enter your credentials to continue
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-gray-600" htmlFor="password">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10 pr-10 text-black"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-600" htmlFor="username">
+                        Username
+                      </Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="username"
+                          type="text"
+                          placeholder="Enter username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="pl-10 text-black"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-gray-600" htmlFor="password">
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-10 pr-10 text-black"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleLogin}
+                        type="submit"
+                        className="w-full py-3 bg-purple-600 hover:bg-purple-700"
+                        disabled={isLoading}
                       >
-                        {showPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
+                        {isLoading ? "Authenticating..." : "Access Website"}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowLogin(false)}
+                        className="w-full text-black"
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handleLogin}
-                      className="w-full py-3 bg-purple-600 hover:bg-purple-700"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Authenticating..." : "Access Website"}
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowLogin(false)}
-                      className="w-full text-black"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
                 </div>
-              </div>
+              </form>
             </Card>
           )}
 
