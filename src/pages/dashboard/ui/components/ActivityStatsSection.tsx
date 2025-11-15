@@ -5,7 +5,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { CustomTooltip } from "@/components/CustomTooltip";
 import StatCard from "@/components/StatCard";
-import PaginatedTable from "@/components/PaginatedTable";
 import SuggestionTable from "@/pages/dashboard/ui/components/SuggestionTable";
 import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
 import Loading from "@/components/Loading";
@@ -18,9 +17,9 @@ import AccuracyTimeLineChart from "./AccuracyTimeLineChart";
 import LearningProgressChart from "./LearningProgressChart";
 import ResponseTimeLineChart from "./ResponseTimeLineChart";
 import MinuteDecisionChart from "./MinuteDecisionChart";
+import { UserActivityLogItem } from "@/types/suggestion.ts";
 
 interface ActivityStatsSectionProps {
-  // Data props - passed from parent
   userActivity: any[];
   progressData: {
     totalInteractions: number;
@@ -45,6 +44,12 @@ interface ActivityStatsSectionProps {
   allActivity?: any[];
   classActivity?: any[];
   classId?: string;
+
+  onSuggestionClick?: (
+    logItem: UserActivityLogItem,
+    index: number,
+    allLogItems: UserActivityLogItem[],
+  ) => void;
 }
 
 const ActivityStatsSection = ({
@@ -61,6 +66,7 @@ const ActivityStatsSection = ({
   allActivity,
   classActivity,
   classId,
+  onSuggestionClick,
 }: ActivityStatsSectionProps) => {
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(false);
   const [pieChartData, setPieChartData] = useState<{
@@ -115,13 +121,13 @@ const ActivityStatsSection = ({
   const filteredLogItems = userActivity.filter(
     (logItem) =>
       ACCEPT_EVENTS.includes(logItem.event) ||
-      REJECT_EVENTS.includes(logItem.event)
+      REJECT_EVENTS.includes(logItem.event),
   );
 
   const sortedLogItems = filteredLogItems.sort(
     (a, b) =>
       new Date(b.createdAt || b.createdAt).getTime() -
-      new Date(a.createdAt || a.createdAt).getTime()
+      new Date(a.createdAt || a.createdAt).getTime(),
   );
 
   if (loading) {
@@ -252,15 +258,11 @@ const ActivityStatsSection = ({
             </div>
           )}
         </div>
-        <PaginatedTable
-          data={sortedLogItems}
-          renderTable={(items, startIndex) => (
-            <SuggestionTable
-              logItems={items}
-              startIndex={startIndex}
-              mode={userMode as UserMode}
-            />
-          )}
+        <SuggestionTable
+          logItems={sortedLogItems}
+          mode={userMode as UserMode}
+          defaultItemsPerPage={10}
+          onRowClick={onSuggestionClick}
         />
       </Card>
     </div>

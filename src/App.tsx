@@ -100,10 +100,6 @@ const App = (): JSX.Element => {
                     />
 
                     <Route
-                      path="/suggestion-details"
-                      element={<SuggestionDetailsView />}
-                    />
-                    <Route
                       path="/consent"
                       element={<CreateEditConsentView />}
                     />

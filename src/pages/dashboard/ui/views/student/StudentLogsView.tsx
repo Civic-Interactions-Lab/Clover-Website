@@ -2,7 +2,6 @@ import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
 import { CustomTooltip } from "@/components/CustomTooltip";
 import Loading from "@/components/Loading";
 import NoData from "@/components/NoData";
-import PaginatedTable from "@/components/PaginatedTable";
 import SuggestionTable from "@/pages/dashboard/ui/components/SuggestionTable";
 import { Card } from "@/components/ui/card";
 import { useUser } from "@/context/UserContext";
@@ -27,19 +26,19 @@ const StudentLogsView = () => {
     userData?.id,
     userData?.settings.mode,
     selectedClassId,
-    isRealtimeEnabled
+    isRealtimeEnabled,
   );
 
   const filteredLogItems = userActivity.filter(
     (logItem) =>
       ACCEPT_EVENTS.includes(logItem.event) ||
-      REJECT_EVENTS.includes(logItem.event)
+      REJECT_EVENTS.includes(logItem.event),
   );
 
   const sortedLogItems = filteredLogItems.sort(
     (a, b) =>
       new Date(b.createdAt || b.createdAt).getTime() -
-      new Date(a.createdAt || a.createdAt).getTime()
+      new Date(a.createdAt || a.createdAt).getTime(),
   );
 
   const loading = userClassLoading || userActivityLoading;
@@ -85,15 +84,12 @@ const StudentLogsView = () => {
           />
         </div>
       </div>
-      <PaginatedTable
-        data={sortedLogItems}
-        renderTable={(items, startIndex) => (
-          <SuggestionTable
-            logItems={items}
-            startIndex={startIndex}
-            mode={userData?.settings.mode as UserMode}
-          />
-        )}
+
+      <SuggestionTable
+        logItems={sortedLogItems}
+        mode={userData?.settings.mode as UserMode}
+        defaultItemsPerPage={10}
+        // onRowClick={onSuggestionClick}
       />
     </Card>
   );

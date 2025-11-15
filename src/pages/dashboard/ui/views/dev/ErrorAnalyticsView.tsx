@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import ErrorDetailsView from "./ErrorDetailsView";
 import ErrorCharts from "../../components/ErrorCharts";
 import ErrorsTable from "../../components/ErrorsTable";
