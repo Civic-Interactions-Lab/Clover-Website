@@ -6,6 +6,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -24,6 +25,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
+  Copy,
   FastForward,
   FileText,
   GitBranch,
@@ -132,6 +134,8 @@ export default function DiffTimeline() {
           handleFetchDiffs={fetchDiffs}
         />
         {renderContent()}
+
+        <RawDataViewer data={diffs} />
       </div>
     </TooltipProvider>
   );
@@ -676,3 +680,124 @@ const DiffViewerCard = ({ diffs }: { diffs: UserDiffsResponse }) => {
     </Card>
   );
 };
+
+function RawDataViewer({ data }: { data: UserDiffsResponse | null }) {
+  const [search, setSearch] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [openSteps, setOpenSteps] = useState<Record<string, boolean>>({});
+
+  if (!data) return null;
+
+  const toggleGroup = (groupId: string) =>
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+
+  const toggleStep = (stepId: string) =>
+    setOpenSteps((prev) => ({ ...prev, [stepId]: !prev[stepId] }));
+
+  const filteredGroups = data.groups.filter((group) => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return (
+      group.groupId.toLowerCase().includes(s) ||
+      group.prompt.toLowerCase().includes(s) ||
+      group.fileName.toLowerCase().includes(s) ||
+      group.language.toLowerCase().includes(s)
+    );
+  });
+
+  return (
+    <Card className="mt-10 shadow">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          Raw Data
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+            }}
+          >
+            <Copy className="w-4 h-4 mr-1" /> Copy All
+          </Button>
+        </CardTitle>
+
+        <Input
+          placeholder="Search groups, filenames, languages..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="mt-4"
+        />
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {filteredGroups.map((group) => (
+          <div
+            key={group.groupId}
+            className="border rounded-md bg-muted/20 overflow-hidden"
+          >
+            <button
+              onClick={() => toggleGroup(group.groupId)}
+              className="w-full text-left px-4 py-3 flex justify-between items-center hover:bg-muted/40 transition"
+            >
+              <div>
+                <p className="font-medium">Group {group.groupId}</p>
+                <p className="text-xs text-muted-foreground">
+                  {group.fileName} • {group.language}
+                </p>
+              </div>
+
+              {openGroups[group.groupId] ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+
+            {openGroups[group.groupId] && (
+              <div className="px-4 pb-4 space-y-2">
+                {group.steps.map((step, idx) => (
+                  <div
+                    key={step.suggestionId}
+                    className="border rounded-md bg-background"
+                  >
+                    <button
+                      onClick={() => toggleStep(step.suggestionId)}
+                      className="w-full px-3 py-2 flex justify-between items-center text-left hover:bg-muted/20 transition"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          Step {idx + 1}: {step.event}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {step.createdAt} {step.shownBug && "• Bug Found"}
+                        </p>
+                      </div>
+
+                      {openSteps[step.suggestionId] ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+
+                    {openSteps[step.suggestionId] && (
+                      <pre className="text-xs p-3 bg-gray-900 text-gray-100 rounded-b-md overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(step, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {filteredGroups.length === 0 && (
+          <p className="text-sm text-muted-foreground italic">
+            No groups match your search.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
