@@ -70,17 +70,17 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
 
   // Focus on these 5 events
   const focusEvents = [
-    "SUGGESTION_TYPING",
+    "TYPING",
     "SUGGESTION_SHOWN",
     "SUGGESTION_TAB_ACCEPT",
-    "SUGGESTION_RUN",
+    "RUN",
   ];
 
   // Event options for the select dropdown (excluding TYPING)
   const eventSelectOptions = [
     { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
     { value: "SUGGESTION_TAB_ACCEPT", label: "Tab Accept" },
-    { value: "SUGGESTION_RUN", label: "Run Command" },
+    { value: "RUN", label: "Run Command" },
   ];
 
   // Fetch user data based on passed userId
@@ -151,10 +151,9 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         const timelineEvents: TimelineEvent[] = logs.map((log) => ({
           id: log.id,
           timestamp: log.created_at,
-          type:
-            log.event === "SUGGESTION_TYPING" ? "typing" : "suggestion_event",
+          type: log.event === "TYPING" ? "typing" : "suggestion_event",
           content: log.raw_text,
-          event: log.event || "SUGGESTION_TYPING", // Default to TYPING
+          event: log.event || "TYPING", // Default to TYPING
           suggestionData: log.line_suggestions
             ? {
                 correctLine: log.line_suggestions.correct_line || null,
@@ -287,7 +286,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
 
   const getEventIcon = (event: string) => {
     switch (event) {
-      case "SUGGESTION_TYPING":
+      case "TYPING":
         return Keyboard;
       case "SUGGESTION_TAB_ACCEPT":
         return CheckCircle;
@@ -295,7 +294,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return XCircle;
       case "SUGGESTION_SHOWN":
         return Eye;
-      case "SUGGESTION_RUN":
+      case "RUN":
         return CodeXml;
       default:
         return FileText;
@@ -310,9 +309,9 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return "border-red-200 dark:border-red-800";
       case "SUGGESTION_SHOWN":
         return "border-yellow-500 dark:border-yellow-300";
-      case "SUGGESTION_RUN":
+      case "RUN":
         return "border-purple-200 dark:border-purple-800";
-      case "SUGGESTION_TYPING":
+      case "TYPING":
       default:
         return "border-gray-400 dark:border-gray-600";
     }
@@ -320,7 +319,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
 
   const getEventDisplayName = (event: string) => {
     switch (event) {
-      case "SUGGESTION_TYPING":
+      case "TYPING":
         return "Typing";
       case "SUGGESTION_TAB_ACCEPT":
         return "Tab Accept";
@@ -328,7 +327,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return "Line Reject";
       case "SUGGESTION_SHOWN":
         return "Suggestion Shown";
-      case "SUGGESTION_RUN":
+      case "RUN":
         return "Run Command";
       default:
         return event.replace("SUGGESTION_", "").replace("_", " ");
