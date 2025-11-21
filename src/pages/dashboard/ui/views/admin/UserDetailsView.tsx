@@ -31,6 +31,7 @@ import UserDataDownloadButton from "../../components/UserDataDownloadButton";
 import { UserActivityLogItem } from "@/types/suggestion.ts";
 import SuggestionDetailsView from "@/pages/dashboard/ui/views/student/SuggestionDetailsView.tsx";
 import TypingLogs from "@/components/TypingLogs.tsx";
+import TypingLogsDownloadButton from "@/components/TypingLogsDownloadButton.tsx";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -118,6 +119,8 @@ const UserDetailsView = () => {
     selectedClassId,
     isRealtimeEnabled,
   );
+
+  console.log("User activity", JSON.stringify(userActivity, null, 2));
 
   const handleEditViewClick = (userId: string) => {
     navigate(`/dashboard/users/${userId}/edits`);
@@ -494,6 +497,13 @@ const UserDetailsView = () => {
             </CardContent>
           </Card>
 
+          <div className="flex w-full justify-end">
+            <TypingLogsDownloadButton
+              userId={userId as string}
+              user={displayUser}
+            />
+          </div>
+
           <TypingLogs userId={userId as string} />
 
           <div className="flex w-full justify-between gap-6 items-center">
@@ -522,10 +532,10 @@ const UserDetailsView = () => {
             onSuggestionClick={handleSuggestionClick}
           />
 
-          <TypingCharts
-            userId={displayUser?.id as string}
-            mode={displayUser?.settings?.mode as UserMode}
-          />
+          {/*<TypingCharts*/}
+          {/*  userId={displayUser?.id as string}*/}
+          {/*  mode={displayUser?.settings?.mode as UserMode}*/}
+          {/*/>*/}
         </div>
       )}
     </>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { User } from "@/types/user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import CustomSelect from "@/components/CustomSelect";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,6 +19,8 @@ import {
   Calendar,
   AlertTriangle,
   CodeXml,
+  SkipForward,
+  SkipBack,
 } from "lucide-react";
 
 type TypingLogData = {
@@ -53,7 +56,6 @@ interface TypingLogsProps {
 }
 
 const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
-  const [typingLogs, setTypingLogs] = useState<TypingLogData[]>([]);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,13 +64,23 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
   // Navigation state
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
 
+  // Event-specific navigation state
+  const [selectedEventType, setSelectedEventType] =
+    useState<string>("SUGGESTION_SHOWN");
+
   // Focus on these 5 events
   const focusEvents = [
     "SUGGESTION_TYPING",
     "SUGGESTION_SHOWN",
     "SUGGESTION_TAB_ACCEPT",
     "SUGGESTION_RUN",
-    "SUGGESTION_LINE_REJECT",
+  ];
+
+  // Event options for the select dropdown (excluding TYPING)
+  const eventSelectOptions = [
+    { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
+    { value: "SUGGESTION_TAB_ACCEPT", label: "Tab Accept" },
+    { value: "SUGGESTION_RUN", label: "Run Command" },
   ];
 
   // Fetch user data based on passed userId
@@ -134,7 +146,6 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         }
 
         const logs = data as unknown as TypingLogData[];
-        setTypingLogs(logs);
 
         // Process logs into timeline events
         const timelineEvents: TimelineEvent[] = logs.map((log) => ({
@@ -148,7 +159,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
             ? {
                 correctLine: log.line_suggestions.correct_line || null,
                 incorrectLine: log.line_suggestions.incorrect_line || null,
-                shownBug: log.line_suggestions.shown_bug || null,
+                shownBug: log.line_suggestions.shown_bug ?? null,
               }
             : undefined,
         }));
@@ -218,6 +229,43 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
 
   const goToLastLog = () => {
     setCurrentLogIndex(timeline.length - 1);
+  };
+
+  // Event-specific navigation functions
+  const goToNextEventOfType = (eventType: string) => {
+    const nextIndex = timeline.findIndex(
+      (event, index) => index > currentLogIndex && event.event === eventType,
+    );
+    if (nextIndex !== -1) {
+      setCurrentLogIndex(nextIndex);
+    }
+  };
+
+  const goToPreviousEventOfType = (eventType: string) => {
+    // Find the last occurrence before current index
+    let previousIndex = -1;
+    for (let i = currentLogIndex - 1; i >= 0; i--) {
+      if (timeline[i].event === eventType) {
+        previousIndex = i;
+        break;
+      }
+    }
+    if (previousIndex !== -1) {
+      setCurrentLogIndex(previousIndex);
+    }
+  };
+
+  // Check if there are next/previous events of selected type
+  const hasNextEventOfType = (eventType: string) => {
+    return timeline.some(
+      (event, index) => index > currentLogIndex && event.event === eventType,
+    );
+  };
+
+  const hasPreviousEventOfType = (eventType: string) => {
+    return timeline.some(
+      (event, index) => index < currentLogIndex && event.event === eventType,
+    );
   };
 
   // Format raw text with syntax highlighting and line numbers
@@ -447,6 +495,61 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                     )}
                   </div>
                 </div>
+
+                {/* Event-specific navigation controls */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    {/* Event selection and navigation buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                        Jump to event:
+                      </span>
+
+                      <CustomSelect
+                        value={selectedEventType}
+                        onValueChange={setSelectedEventType}
+                        options={eventSelectOptions}
+                        className="w-40"
+                        placeholder="Select event type"
+                      />
+
+                      <button
+                        onClick={() =>
+                          goToPreviousEventOfType(selectedEventType)
+                        }
+                        disabled={!hasPreviousEventOfType(selectedEventType)}
+                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors min-w-0"
+                      >
+                        <SkipBack className="size-4" />
+                        <span className="hidden sm:inline">Prev</span>
+                      </button>
+
+                      <button
+                        onClick={() => goToNextEventOfType(selectedEventType)}
+                        disabled={!hasNextEventOfType(selectedEventType)}
+                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors min-w-0"
+                      >
+                        <span className="hidden sm:inline">Next</span>
+                        <SkipForward className="size-4" />
+                      </button>
+                    </div>
+
+                    {/* Event count info */}
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">
+                        {getEventDisplayName(selectedEventType)}:
+                      </span>
+                      <span className="ml-1">
+                        {
+                          timeline.filter(
+                            (event) => event.event === selectedEventType,
+                          ).length
+                        }{" "}
+                        events
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -491,86 +594,106 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                       </CardHeader>
 
                       <CardContent className="space-y-4">
-                        {timeline[currentLogIndex].suggestionData!
-                          .correctLine && (
-                          <div>
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className="text-sm font-medium text-muted-foreground">
-                                Correct Line:
-                              </span>
-                              {timeline[currentLogIndex].event ===
-                                "SUGGESTION_TAB_ACCEPT" &&
-                                timeline[currentLogIndex].suggestionData!
-                                  .shownBug === false && (
-                                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                    <CheckCircle className="size-3" />
-                                    ACCEPTED
-                                  </span>
-                                )}
-                              {timeline[currentLogIndex].event ===
-                                "SUGGESTION_TAB_ACCEPT" &&
-                                timeline[currentLogIndex].suggestionData!
-                                  .shownBug === null && (
-                                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                    <CheckCircle className="size-3" />
-                                    ACCEPTED (assumed correct)
-                                  </span>
-                                )}
-                            </div>
-                            <code
-                              className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                timeline[currentLogIndex].event ===
-                                  "SUGGESTION_TAB_ACCEPT" &&
-                                (timeline[currentLogIndex].suggestionData!
-                                  .shownBug === false ||
-                                  timeline[currentLogIndex].suggestionData!
-                                    .shownBug === null)
-                                  ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800"
-                                  : "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700"
-                              }`}
-                            >
-                              {
-                                timeline[currentLogIndex].suggestionData!
-                                  .correctLine
-                              }
-                            </code>
-                          </div>
-                        )}
+                        {/* Determine which line was actually shown to user */}
+                        {(() => {
+                          const suggestionData =
+                            timeline[currentLogIndex].suggestionData!;
+                          const isShownEvent =
+                            timeline[currentLogIndex].event ===
+                            "SUGGESTION_SHOWN";
+                          const isTabAcceptEvent =
+                            timeline[currentLogIndex].event ===
+                            "SUGGESTION_TAB_ACCEPT";
+                          const userSawBuggyLine =
+                            suggestionData.shownBug === true;
+                          const userSawCorrectLine =
+                            suggestionData.shownBug === false;
+                          const unknownWhichShown =
+                            suggestionData.shownBug === null;
 
-                        {timeline[currentLogIndex].suggestionData!
-                          .incorrectLine && (
-                          <div>
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className="text-sm font-medium text-muted-foreground">
-                                Incorrect Line (Bug):
-                              </span>
-                              {timeline[currentLogIndex].event ===
-                                "SUGGESTION_TAB_ACCEPT" &&
-                                timeline[currentLogIndex].suggestionData!
-                                  .shownBug === true && (
-                                  <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                    <AlertTriangle className="size-3" />
-                                    ACCEPTED (BUG)
-                                  </span>
-                                )}
-                            </div>
-                            <code
-                              className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                timeline[currentLogIndex].event ===
-                                  "SUGGESTION_TAB_ACCEPT" &&
-                                timeline[currentLogIndex].suggestionData!
-                                  .shownBug === true
-                                  ? "bg-orange-50 dark:bg-orange-950 border-orange-300 dark:border-orange-700 ring-2 ring-orange-200 dark:ring-orange-800"
-                                  : "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700"
-                              }`}
-                            >
-                              {
-                                timeline[currentLogIndex].suggestionData!
-                                  .incorrectLine
-                              }
-                            </code>
-                          </div>
-                        )}
+                          console.log("suggestionData", suggestionData);
+
+                          return (
+                            <>
+                              {suggestionData.correctLine && (
+                                <div>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className="text-sm font-medium text-muted-foreground">
+                                      Correct Line:
+                                    </span>
+                                    {userSawCorrectLine && (
+                                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full flex items-center gap-1">
+                                        <Eye className="size-3" />
+                                        USER SAW THIS
+                                      </span>
+                                    )}
+                                    {isTabAcceptEvent && userSawCorrectLine && (
+                                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
+                                        <CheckCircle className="size-3" />
+                                        ACCEPTED
+                                      </span>
+                                    )}
+                                    {isTabAcceptEvent && unknownWhichShown && (
+                                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
+                                        <CheckCircle className="size-3" />
+                                        ACCEPTED (assumed correct)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <code
+                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
+                                      (isShownEvent && userSawBuggyLine) ||
+                                      (isTabAcceptEvent && userSawBuggyLine)
+                                        ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
+                                        : userSawCorrectLine
+                                          ? "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 ring-2 ring-green-200 dark:ring-green-800"
+                                          : isTabAcceptEvent &&
+                                              unknownWhichShown
+                                            ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800"
+                                            : "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700"
+                                    }`}
+                                  >
+                                    {suggestionData.correctLine}
+                                  </code>
+                                </div>
+                              )}
+
+                              {suggestionData.incorrectLine && (
+                                <div>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className="text-sm font-medium text-muted-foreground">
+                                      Incorrect Line (Bug):
+                                    </span>
+                                    {userSawBuggyLine && (
+                                      <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-medium rounded-full flex items-center gap-1">
+                                        <Eye className="size-3" />
+                                        USER SAW THIS
+                                      </span>
+                                    )}
+                                    {isTabAcceptEvent && userSawBuggyLine && (
+                                      <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 text-xs font-medium rounded-full flex items-center gap-1">
+                                        <AlertTriangle className="size-3" />
+                                        ACCEPTED (BUG)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <code
+                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
+                                      (isShownEvent && userSawCorrectLine) ||
+                                      (isTabAcceptEvent && userSawCorrectLine)
+                                        ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
+                                        : userSawBuggyLine
+                                          ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 ring-2 ring-red-200 dark:ring-red-800"
+                                          : "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700"
+                                    }`}
+                                  >
+                                    {suggestionData.incorrectLine}
+                                  </code>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Show message if no line content available */}
                         {!timeline[currentLogIndex].suggestionData!
