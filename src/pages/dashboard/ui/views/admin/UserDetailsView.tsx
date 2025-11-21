@@ -30,6 +30,7 @@ import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
 import UserDataDownloadButton from "../../components/UserDataDownloadButton";
 import { UserActivityLogItem } from "@/types/suggestion.ts";
 import SuggestionDetailsView from "@/pages/dashboard/ui/views/student/SuggestionDetailsView.tsx";
+import TypingLogs from "@/components/TypingLogs.tsx";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -492,6 +493,8 @@ const UserDetailsView = () => {
               <ActivityStatsCards user={displayUser} />
             </CardContent>
           </Card>
+
+          <TypingLogs userId={userId as string} />
 
           <div className="flex w-full justify-between gap-6 items-center">
             <p className="text-xl font-semibold hidden md:block">

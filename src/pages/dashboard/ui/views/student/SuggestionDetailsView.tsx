@@ -22,7 +22,6 @@ import {
   CodeSelectionSuggestion,
 } from "@/types/suggestion";
 import { UserMode } from "@/types/user";
-import { Badge } from "@/components/ui/badge";
 import CodeDiffViewer from "@/components/CodeDiffViewer";
 
 interface SuggestionDetailsViewProps {
