@@ -31,10 +31,10 @@ const TypingLogsDownloadButton = ({
   const [loading, setLoading] = useState(false);
 
   const focusEvents = [
-    "SUGGESTION_TYPING",
+    "TYPING",
     "SUGGESTION_SHOWN",
     "SUGGESTION_TAB_ACCEPT",
-    "SUGGESTION_RUN",
+    "RUN",
     "SUGGESTION_LINE_REJECT",
   ];
 
