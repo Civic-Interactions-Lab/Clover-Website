@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import { getSuggestionByModeAndId } from "@/api/suggestion";
 import Loading from "@/components/Loading";
+import NavBar from "@/components/NavBar";
+import Footer from "@/components/Footer";
 import {
   UserActivityLogItem,
   SuggestionData,
@@ -22,30 +25,24 @@ import {
   CodeSelectionSuggestion,
 } from "@/types/suggestion";
 import { UserMode } from "@/types/user";
+import { Badge } from "@/components/ui/badge";
 import CodeDiffViewer from "@/components/CodeDiffViewer";
 
-interface SuggestionDetailsViewProps {
-  logItem: UserActivityLogItem;
-  logItems: UserActivityLogItem[];
-  initialIndex: number;
-  mode: UserMode;
-  onBack: () => void;
-}
+const SuggestionDetailsView = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
 
-const SuggestionDetailsView = ({
-  logItem,
-  logItems,
-  initialIndex,
-  mode,
-  onBack,
-}: SuggestionDetailsViewProps) => {
+  // Extract data from navigation state
+  const logItems = location.state?.logItems as UserActivityLogItem[];
+  const initialIndex = location.state?.currentIndex as number;
+  const mode = location.state?.mode as UserMode;
+
+  // State for current item navigation
   const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
   const [suggestionDetail, setSuggestionDetail] =
     useState<SuggestionData | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  const topRef = useRef<HTMLDivElement>(null);
 
   // Expandable sections state
   const [expandedSections, setExpandedSections] = useState({
@@ -93,9 +90,10 @@ const SuggestionDetailsView = ({
     }));
   };
 
+  // Fetch suggestion when currentIndex changes
   useEffect(() => {
     if (!logItems || !mode || !currentLogItem) {
-      onBack();
+      navigate("/dashboard", { replace: true });
       return;
     }
 
@@ -115,12 +113,12 @@ const SuggestionDetailsView = ({
           setSuggestionDetail(result.data);
           console.log(
             "Fetched suggestion detail:",
-            JSON.stringify(result.data),
+            JSON.stringify(result.data)
           );
         }
       } catch (err) {
         setFetchError(
-          err instanceof Error ? err.message : "Failed to fetch suggestion",
+          err instanceof Error ? err.message : "Failed to fetch suggestion"
         );
         setSuggestionDetail(null);
       } finally {
@@ -129,11 +127,11 @@ const SuggestionDetailsView = ({
     };
 
     fetchSuggestion();
-  }, [currentLogItem, mode, onBack, logItems]);
+  }, [currentLogItem, mode, navigate, logItems]);
 
-  useEffect(() => {
-    topRef.current?.scrollTo({ top: 0 });
-  }, [currentIndex]);
+  const handleGoBack = () => {
+    navigate(-1);
+  };
 
   if (!logItems || !mode || !currentLogItem) {
     return null;
@@ -317,7 +315,7 @@ const SuggestionDetailsView = ({
                       <li key={index} className="pl-2">
                         {item}
                       </li>
-                    ),
+                    )
                   )}
                 </ul>
               ) : (
@@ -333,196 +331,217 @@ const SuggestionDetailsView = ({
   };
 
   return (
-    <div ref={topRef} className="min-h-screen pb-24 px-8">
-      <div className="max-w-7xl mx-auto space-y-12">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={onBack}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </Button>
-            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
-            <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              Suggestion Details
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Navigation Controls - Always visible */}
-            <div className="flex items-center gap-2">
+    <>
+      <NavBar />
+      <div className="min-h-screen py-24 px-8">
+        <div className="max-w-7xl mx-auto space-y-12">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={handlePrevious}
-                disabled={!canGoPrevious}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleGoBack}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
+                Back
               </Button>
-              <div className="text-xs text-gray-500 dark:text-gray-400 min-w-fit px-2">
-                {currentIndex + 1} of {logItems.length}
+              <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Code Suggestion Details
+              </h1>
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span>
+                  ({currentIndex + 1} of {logItems.length})
+                </span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleNext}
-                disabled={!canGoNext}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Navigation Controls */}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePrevious}
+                  disabled={!canGoPrevious}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNext}
+                  disabled={!canGoNext}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+
+              <Badge
+                variant={isAccepted ? "default" : "destructive"}
+                className="px-3 py-1 text-sm font-medium rounded-2xl"
               >
-                <ChevronRight className="w-4 h-4" />
-              </Button>
+                {isAccepted ? "Accepted" : "Rejected"}
+              </Badge>
+              <Badge
+                variant={isCorrect ? "default" : "destructive"}
+                className="px-3 py-1 text-sm font-medium rounded-2xl"
+              >
+                {correctness}
+              </Badge>
             </div>
           </div>
-        </div>
 
-        {/* Content - Only render when not loading */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loading size="lg" text="Loading suggestion details..." />
-          </div>
-        ) : fetchError ? (
-          <div className="text-red-500 p-8 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-800 text-center">
-            <Bug className="w-12 h-12 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
-              Error Loading Suggestion
-            </h3>
-            <p>{fetchError}</p>
-          </div>
-        ) : suggestionDetail ? (
-          <div className="space-y-12">
-            {/* Main Suggestion Content */}
-            <section>{renderSuggestionContent()}</section>
+          {/* Content - Only render when not loading */}
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loading size="lg" text="Loading suggestion details..." />
+            </div>
+          ) : fetchError ? (
+            <div className="text-red-500 p-8 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-800 text-center">
+              <Bug className="w-12 h-12 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">
+                Error Loading Suggestion
+              </h3>
+              <p>{fetchError}</p>
+            </div>
+          ) : suggestionDetail ? (
+            <div className="space-y-12">
+              {/* Main Suggestion Content */}
+              <section>{renderSuggestionContent()}</section>
 
-            {/* Metadata Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm font-medium">Date Created</span>
-                </div>
-                <p className="text-sm text-gray-800 dark:text-gray-200 font-mono">
-                  {new Date(currentLogItem.createdAt).toLocaleDateString(
-                    "en-US",
-                    {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    },
-                  )}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                  <Bug className="w-4 h-4" />
-                  <span className="text-sm font-medium">Bug Detected</span>
-                </div>
-                <p
-                  className={`text-sm font-semibold ${
-                    suggestionDetail.shownBug
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-green-600 dark:text-green-400"
-                  }`}
-                >
-                  {suggestionDetail.shownBug ? "Yes" : "No"}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                  <Zap className="w-4 h-4" />
-                  <span className="text-sm font-medium">Vendor</span>
-                </div>
-                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  {suggestionDetail.vendor}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                  <Code className="w-4 h-4" />
-                  <span className="text-sm font-medium">Model</span>
-                </div>
-                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  {suggestionDetail.model || "N/A"}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm font-medium">Response Time</span>
-                </div>
-                <p
-                  className={`text-sm font-semibold ${
-                    suggestionDetail.duration < 3000
-                      ? "text-green-600 dark:text-green-400"
-                      : suggestionDetail.duration < 10000
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-red-600 dark:text-red-400"
-                  }`}
-                >
-                  {suggestionDetail.duration} ms
-                </p>
-              </div>
-
-              {suggestionDetail.language && (
+              {/* Metadata Grid */}
+              <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                 <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                   <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
-                    <FileText className="w-4 h-4" />
-                    <span className="text-sm font-medium">Language</span>
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Date Created</span>
                   </div>
-                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    {suggestionDetail.language}
+                  <p className="text-sm text-gray-800 dark:text-gray-200 font-mono">
+                    {new Date(currentLogItem.createdAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </p>
                 </div>
-              )}
-            </section>
 
-            {/* Expandable Sections */}
-            <section className="space-y-6">
-              <ExpandableSection
-                title="Original Prompt"
-                content={suggestionDetail.prompt || "Unknown prompt"}
-                sectionKey="originalPrompt"
-                icon={FileText}
-              />
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Bug className="w-4 h-4" />
+                    <span className="text-sm font-medium">Bug Detected</span>
+                  </div>
+                  <p
+                    className={`text-sm font-semibold ${
+                      suggestionDetail.shownBug
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-green-600 dark:text-green-400"
+                    }`}
+                  >
+                    {suggestionDetail.shownBug ? "Yes" : "No"}
+                  </p>
+                </div>
 
-              <ExpandableSection
-                title="Refined Prompt"
-                content={
-                  suggestionDetail.refinedPrompt ||
-                  "Refined prompt not generated yet"
-                }
-                sectionKey="refinedPrompt"
-                icon={Zap}
-              />
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-sm font-medium">Vendor</span>
+                  </div>
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    {suggestionDetail.vendor}
+                  </p>
+                </div>
 
-              {suggestionDetail.explanations && (
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Code className="w-4 h-4" />
+                    <span className="text-sm font-medium">Model</span>
+                  </div>
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    {suggestionDetail.model || "N/A"}
+                  </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Response Time</span>
+                  </div>
+                  <p
+                    className={`text-sm font-semibold ${
+                      suggestionDetail.duration < 3000
+                        ? "text-green-600 dark:text-green-400"
+                        : suggestionDetail.duration < 10000
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {suggestionDetail.duration} ms
+                  </p>
+                </div>
+
+                {suggestionDetail.language && (
+                  <div className="bg-white dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2 text-gray-600 dark:text-gray-400">
+                      <FileText className="w-4 h-4" />
+                      <span className="text-sm font-medium">Language</span>
+                    </div>
+                    <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                      {suggestionDetail.language}
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              {/* Expandable Sections */}
+              <section className="space-y-6">
                 <ExpandableSection
-                  title="Explanation"
-                  content={suggestionDetail.explanations as any}
-                  sectionKey="explanation"
-                  icon={Bug}
+                  title="Original Prompt"
+                  content={suggestionDetail.prompt || "Unknown prompt"}
+                  sectionKey="originalPrompt"
+                  icon={FileText}
                 />
-              )}
-            </section>
-          </div>
-        ) : (
-          <div className="text-center text-gray-500 dark:text-gray-400 p-12">
-            <Code className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-lg">No suggestion details available</p>
-          </div>
-        )}
+
+                <ExpandableSection
+                  title="Refined Prompt"
+                  content={
+                    suggestionDetail.refinedPrompt ||
+                    "Refined prompt not generated yet"
+                  }
+                  sectionKey="refinedPrompt"
+                  icon={Zap}
+                />
+
+                {suggestionDetail.explanations && (
+                  <ExpandableSection
+                    title="Explanation"
+                    content={suggestionDetail.explanations as any}
+                    sectionKey="explanation"
+                    icon={Bug}
+                  />
+                )}
+              </section>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 dark:text-gray-400 p-12">
+              <Code className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No suggestion details available</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      <Footer />
+    </>
   );
 };
 
