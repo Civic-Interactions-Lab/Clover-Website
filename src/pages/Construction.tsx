@@ -116,18 +116,18 @@ const Construction = () => {
             </div>
           ) : (
             <Card className="p-8 max-w-md mx-auto bg-gray-100 border-none">
-              <form>
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <Lock className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      Early Access
-                    </h2>
-                    <p className="text-gray-600 mt-2">
-                      Enter your credentials to continue
-                    </p>
-                  </div>
+              <div className="space-y-6">
+                <div className="text-center">
+                  <Lock className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Early Access
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Enter your credentials to continue
+                  </p>
+                </div>
 
+                <form>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-gray-600" htmlFor="username">
@@ -179,7 +179,6 @@ const Construction = () => {
                     <div className="space-y-3">
                       <Button
                         onClick={handleLogin}
-                        type="submit"
                         className="w-full py-3 bg-purple-600 hover:bg-purple-700"
                         disabled={isLoading}
                       >
@@ -189,14 +188,14 @@ const Construction = () => {
                       <Button
                         variant="ghost"
                         onClick={() => setShowLogin(false)}
-                        className="w-full text-black"
+                        className="w-full text-black bg-gray-200"
                       >
                         Cancel
                       </Button>
                     </div>
                   </div>
-                </div>
-              </form>
+                </form>
+              </div>
             </Card>
           )}
 
