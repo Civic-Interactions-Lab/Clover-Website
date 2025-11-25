@@ -21,6 +21,7 @@ import {
   CodeXml,
   SkipForward,
   SkipBack,
+  Bot,
 } from "lucide-react";
 
 type TypingLogData = {
@@ -74,6 +75,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
     "SUGGESTION_SHOWN",
     "SUGGESTION_TAB_ACCEPT",
     "RUN",
+    "SUGGESTION_GENERATE",
   ];
 
   // Event options for the select dropdown (excluding TYPING)
@@ -81,6 +83,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
     { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
     { value: "SUGGESTION_TAB_ACCEPT", label: "Tab Accept" },
     { value: "RUN", label: "Run Command" },
+    { value: "SUGGESTION_GENERATE", label: "Generate Suggestion" },
   ];
 
   // Fetch user data based on passed userId
@@ -294,6 +297,8 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return XCircle;
       case "SUGGESTION_SHOWN":
         return Eye;
+      case "SUGGESTION_GENERATE":
+        return Bot;
       case "RUN":
         return CodeXml;
       default:
@@ -309,6 +314,8 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return "border-red-200 dark:border-red-800";
       case "SUGGESTION_SHOWN":
         return "border-yellow-500 dark:border-yellow-300";
+      case "SUGGESTION_GENERATE":
+        return "border-blue-200 dark:border-blue-800";
       case "RUN":
         return "border-purple-200 dark:border-purple-800";
       case "TYPING":
@@ -327,6 +334,8 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
         return "Line Reject";
       case "SUGGESTION_SHOWN":
         return "Suggestion Shown";
+      case "SUGGESTION_GENERATE":
+        return "Generate Suggestion";
       case "RUN":
         return "Run Command";
       default:
