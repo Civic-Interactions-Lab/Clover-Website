@@ -279,7 +279,12 @@ const UserDetailsView = () => {
               View User Edits
             </Button>
 
-            <UserDataDownloadButton user={displayUser!} />
+            <div className="flex w-full justify-end">
+              <TypingLogsDownloadButton
+                userId={userId as string}
+                user={displayUser}
+              />
+            </div>
           </div>
           <Card className="overflow-hidden">
             {/* Header */}
@@ -496,13 +501,6 @@ const UserDetailsView = () => {
               <ActivityStatsCards user={displayUser} />
             </CardContent>
           </Card>
-
-          <div className="flex w-full justify-end">
-            <TypingLogsDownloadButton
-              userId={userId as string}
-              user={displayUser}
-            />
-          </div>
 
           <TypingLogs userId={userId as string} />
 
