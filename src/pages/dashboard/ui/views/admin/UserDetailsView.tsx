@@ -506,7 +506,7 @@ const UserDetailsView = () => {
 
           <div className="flex w-full justify-between gap-6 items-center">
             <p className="text-xl font-semibold hidden md:block">
-              Student Activity Analytiscs
+              Student Activity Analytics
             </p>
             <div className="w-full md:w-80">
               <ClassesDropdownMenu
