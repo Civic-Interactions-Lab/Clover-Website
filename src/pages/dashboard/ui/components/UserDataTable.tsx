@@ -20,6 +20,7 @@ import UserDataSearchFilters from "./UserDataSearchFilter";
 import ModeBadge from "@/components/ModeBadge";
 import RoleBadge from "@/components/RoleBadge";
 import StatusBadge from "@/components/StatusBadge";
+import BugBadge from "@/components/BugBadge";
 import UserAvatar from "@/components/UserAvatar";
 import { formatActivityTimestamp, isOnline } from "@/utils/timeConverter";
 import { useNavigate } from "react-router-dom";
@@ -115,6 +116,7 @@ const UsersDataTable = () => {
                 <TableHead className="w-[20%]">Last Active</TableHead>
                 <TableHead className="w-[10%]">Role</TableHead>
                 <TableHead className="w-[10%]">Status</TableHead>
+                <TableHead className="w-[10%]">Bug %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -191,6 +193,7 @@ const UsersDataTable = () => {
                   totalInteractions={user.totalInteractions}
                   correctSuggestions={user.correctSuggestions}
                   accuracyPercentage={user.accuracyPercentage}
+                  bugPercentage={user.settings?.bugPercentage}
                 />
               ))}
             </div>
@@ -209,20 +212,21 @@ const UsersDataTable = () => {
                 <TableHeader className="bg-[#f5f5f5] dark:bg-[#262626]">
                   <TableRow className="bg-muted">
                     <TableHead className="w-[5%] text-center">No.</TableHead>
-                    <TableHead className="w-[25%]">User</TableHead>
-                    <TableHead className="w-[15%]">Accuracy</TableHead>
-                    <TableHead className="w-[20%]">Last Active</TableHead>
-                    <TableHead className="w-[15%] text-center">Mode</TableHead>
+                    <TableHead className="w-[20%]">User</TableHead>
+                    <TableHead className="w-[12%]">Accuracy</TableHead>
+                    <TableHead className="w-[18%]">Last Active</TableHead>
+                    <TableHead className="w-[13%] text-center">Mode</TableHead>
                     <TableHead className="w-[10%] text-center">Role</TableHead>
                     <TableHead className="w-[10%] text-center">
                       Status
                     </TableHead>
+                    <TableHead className="w-[12%] text-center">Bug %</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading && users.length > 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4">
+                      <TableCell colSpan={8} className="text-center py-4">
                         <div className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
                         <span className="ml-2">Loading...</span>
                       </TableCell>
@@ -303,6 +307,9 @@ const UserActivityRow = ({
         <TableCell>
           <div className="h-6 bg-muted rounded animate-pulse w-16"></div>
         </TableCell>
+        <TableCell>
+          <div className="h-6 bg-muted rounded animate-pulse w-16"></div>
+        </TableCell>
       </TableRow>
     );
   }
@@ -369,6 +376,10 @@ const UserActivityRow = ({
 
       <TableCell className="text-center">
         <StatusBadge status={user.status} />
+      </TableCell>
+
+      <TableCell className="text-center">
+        <BugBadge bugPercentage={user.settings?.bugPercentage ?? 0} />
       </TableCell>
     </TableRow>
   );

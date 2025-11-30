@@ -21,13 +21,15 @@ import { Calendar, Edit, Info, Mail, Settings, User2, X } from "lucide-react";
 import Loading from "@/components/Loading";
 import { getUserData } from "@/api/user";
 import { useUser } from "@/context/UserContext";
-import TypingCharts from "../../components/TypingCharts";
 import ActivityStatsSection from "../../components/ActivityStatsSection";
 import ClassesDropdownMenu from "../../components/ClassesDropdownMenu";
 import { useUserClasses } from "@/hooks/useUserClasses";
 import ActivityStatsCards from "@/pages/profile/ui/components/ActivityStatsCards";
 import { useUserActivity } from "@/pages/dashboard/hooks/useUserActivity";
-import UserDataDownloadButton from "../../components/UserDataDownloadButton";
+import { UserActivityLogItem } from "@/types/suggestion.ts";
+import SuggestionDetailsView from "@/pages/dashboard/ui/views/student/SuggestionDetailsView.tsx";
+import TypingLogs from "@/components/TypingLogs.tsx";
+import TypingLogsDownloadButton from "@/components/TypingLogsDownloadButton.tsx";
 
 const UserDetailsView = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -40,9 +42,17 @@ const UserDetailsView = () => {
   const [editMode, setEditMode] = useState(false);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<UserSettings | null>(
-    null
+    null,
   );
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(false);
+
+  const [selectedSuggestion, setSelectedSuggestion] = useState<{
+    logItem: UserActivityLogItem;
+    logItems: UserActivityLogItem[];
+    currentIndex: number;
+    mode: UserMode;
+    correctness: string;
+  } | null>(null);
 
   const [editingUser, setEditingUser] = useState<{
     role: UserRole;
@@ -105,8 +115,10 @@ const UserDetailsView = () => {
     displayUser?.id,
     displayUser?.settings?.mode,
     selectedClassId,
-    isRealtimeEnabled
+    isRealtimeEnabled,
   );
+
+  console.log("User activity", JSON.stringify(userActivity, null, 2));
 
   const handleEditViewClick = (userId: string) => {
     navigate(`/dashboard/users/${userId}/edits`);
@@ -118,7 +130,7 @@ const UserDetailsView = () => {
 
   const updateUserField = (
     key: "role" | "status",
-    value: UserRole | UserStatus
+    value: UserRole | UserStatus,
   ) => {
     setEditingUser((prev) => ({ ...prev!, [key]: value }));
   };
@@ -180,6 +192,34 @@ const UserDetailsView = () => {
     setEditingUser(originalUser);
   };
 
+  const handleSuggestionClick = (
+    logItem: UserActivityLogItem,
+    index: number,
+    allLogItems: UserActivityLogItem[],
+  ) => {
+    const isAccept =
+      logItem.event.includes("ACCEPT") || logItem.event.includes("accept");
+    const hasBug = logItem.hasBug || logItem.hasBug;
+    const isCorrect = (isAccept && !hasBug) || (!isAccept && hasBug);
+    const correctness = isCorrect ? "Correct" : "Incorrect";
+
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
+
+    setSelectedSuggestion({
+      logItem,
+      logItems: allLogItems,
+      currentIndex: index,
+      mode: displayUser?.settings?.mode || UserMode.CODE_BLOCK,
+      correctness,
+    });
+  };
+
+  const handleBackFromSuggestionDetails = () => {
+    setSelectedSuggestion(null);
+  };
+
   const canEdit =
     userData?.role === UserRole.ADMIN || userData?.role === UserRole.DEV;
 
@@ -221,256 +261,279 @@ const UserDetailsView = () => {
 
   return (
     <>
-      <div className="space-y-6 max-w-7xl mx-auto px-8">
-        {/* User Details Section */}
-        <div className="flex items-center justify-between">
-          <Button onClick={() => handleEditViewClick(userId!)}>
-            View User Edits
-          </Button>
+      {selectedSuggestion ? (
+        <SuggestionDetailsView
+          logItem={selectedSuggestion.logItem}
+          logItems={selectedSuggestion.logItems}
+          initialIndex={selectedSuggestion.currentIndex}
+          mode={selectedSuggestion.mode}
+          onBack={handleBackFromSuggestionDetails}
+        />
+      ) : (
+        <div className="space-y-6 max-w-7xl mx-auto px-8">
+          {/* User Details Section */}
+          <div className="flex items-center justify-between">
+            <Button onClick={() => handleEditViewClick(userId!)}>
+              View User Edits
+            </Button>
 
-          <UserDataDownloadButton user={displayUser!} />
-        </div>
-        <Card className="overflow-hidden">
-          {/* Header */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-8">
-            <div className="flex items-center space-x-4">
-              <UserAvatar
-                firstName={displayUser!.firstName}
-                avatarUrl={displayUser!.avatarUrl}
-                size="xl"
+            <div className="flex w-full justify-end">
+              <TypingLogsDownloadButton
+                userId={userId as string}
+                user={displayUser}
               />
-              <div className="flex flex-col space-y-2">
-                <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {displayUser!.firstName} {displayUser!.lastName}
-                </CardTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <RoleBadge role={editingUser?.role || displayUser!.role} />
-                  <StatusBadge
-                    status={editingUser?.status || displayUser!.status}
-                  />
+            </div>
+          </div>
+          <Card className="overflow-hidden">
+            {/* Header */}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 px-8">
+              <div className="flex items-center space-x-4">
+                <UserAvatar
+                  firstName={displayUser!.firstName}
+                  avatarUrl={displayUser!.avatarUrl}
+                  size="xl"
+                />
+                <div className="flex flex-col space-y-2">
+                  <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {displayUser!.firstName} {displayUser!.lastName}
+                  </CardTitle>
+                  <div className="flex items-center gap-2 mt-1">
+                    <RoleBadge role={editingUser?.role || displayUser!.role} />
+                    <StatusBadge
+                      status={editingUser?.status || displayUser!.status}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {canEdit && (
-              <button
-                onClick={editMode ? handleCancelEdit : handleEdit}
-                className="text-gray-500 dark:text-gray-300 hover:text-primary"
-              >
-                {editMode ? (
-                  <X className="size-5" />
-                ) : (
-                  <Edit className="size-5" />
-                )}
-              </button>
-            )}
-          </CardHeader>
+              {canEdit && (
+                <button
+                  onClick={editMode ? handleCancelEdit : handleEdit}
+                  className="text-gray-500 dark:text-gray-300 hover:text-primary"
+                >
+                  {editMode ? (
+                    <X className="size-5" />
+                  ) : (
+                    <Edit className="size-5" />
+                  )}
+                </button>
+              )}
+            </CardHeader>
 
-          <CardContent className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="py-3 bg-muted/40">
-                <InfoCardTitle title="Details" icon={User2} />
-                <CardContent className="space-y-3">
-                  <InfoField
-                    label="Email"
-                    value={displayUser!.email}
-                    icon={Mail}
-                  />
-                  <InfoField
-                    label="Joined"
-                    value={new Date(displayUser!.createdAt).toLocaleDateString(
-                      "en-US",
-                      {
+            <CardContent className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="py-3 bg-muted/40">
+                  <InfoCardTitle title="Details" icon={User2} />
+                  <CardContent className="space-y-3">
+                    <InfoField
+                      label="Email"
+                      value={displayUser!.email}
+                      icon={Mail}
+                    />
+                    <InfoField
+                      label="Joined"
+                      value={new Date(
+                        displayUser!.createdAt,
+                      ).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
-                      }
-                    )}
-                    icon={Calendar}
-                  />
-                  <InfoField
-                    label="PID"
-                    value={displayUser?.pid as string}
-                    icon={Info}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* User Settings */}
-              <Card className="py-3 bg-muted/40">
-                <InfoCardTitle title="Settings" icon={Settings} />
-                <CardContent className="space-y-6">
-                  {/* Notifications */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Show Notifications</p>
-                    <Switch
-                      checked={settings?.showNotifications ?? true}
-                      onCheckedChange={(checked) =>
-                        updateSetting("showNotifications", checked)
-                      }
-                      disabled={!editMode}
+                      })}
+                      icon={Calendar}
                     />
-                  </div>
-
-                  {/* Quiz Setting */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Enable Quiz</p>
-                    <Switch
-                      checked={settings?.enableQuiz ?? true}
-                      onCheckedChange={(checked) =>
-                        updateSetting("enableQuiz", checked)
-                      }
-                      disabled={!editMode}
+                    <InfoField
+                      label="PID"
+                      value={displayUser?.pid as string}
+                      icon={Info}
                     />
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Enable Dashboard */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">Enable Dashboard</p>
-                    <Switch
-                      checked={settings?.enableDashboard ?? true}
-                      onCheckedChange={(checked) =>
-                        updateSetting("enableDashboard", checked)
-                      }
-                      disabled={!editMode}
-                    />
-                  </div>
-
-                  {/* Bug Percentage */}
-                  <div className="space-y-3">
+                {/* User Settings */}
+                <Card className="py-3 bg-muted/40">
+                  <InfoCardTitle title="Settings" icon={Settings} />
+                  <CardContent className="space-y-6">
+                    {/* Notifications */}
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        Bug Percentage
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {settings?.bugPercentage}%
-                      </span>
+                      <p className="text-sm font-medium">Show Notifications</p>
+                      <Switch
+                        checked={settings?.showNotifications ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSetting("showNotifications", checked)
+                        }
+                        disabled={!editMode}
+                      />
                     </div>
-                    <Slider
-                      value={[settings?.bugPercentage as number]}
-                      onValueChange={(value) =>
-                        updateSetting("bugPercentage", value[0])
-                      }
-                      min={0}
-                      max={100}
-                      step={5}
-                      disabled={!editMode}
-                      className="w-full"
-                    />
-                  </div>
 
-                  {/* Mode Selection */}
-                  <div className="flex items-center justify-between gap-8">
-                    <p className="text-sm font-medium">Mode</p>
-                    <CustomSelect
-                      value={settings?.mode || UserMode.CODE_BLOCK}
-                      onValueChange={(value) => updateSetting("mode", value)}
-                      options={[
-                        { label: "Block", value: UserMode.CODE_BLOCK },
-                        { label: "Line", value: UserMode.LINE_BY_LINE },
-                        { label: "Selection", value: UserMode.CODE_SELECTION },
-                      ]}
-                      disabled={!editMode}
-                      className="w-36"
-                    />
-                  </div>
+                    {/* Quiz Setting */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Enable Quiz</p>
+                      <Switch
+                        checked={settings?.enableQuiz ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSetting("enableQuiz", checked)
+                        }
+                        disabled={!editMode}
+                      />
+                    </div>
 
-                  {editMode && (
-                    <>
-                      <div className="flex items-center justify-between gap-8">
-                        <p className="text-sm font-medium">Role</p>
-                        <CustomSelect
-                          value={editingUser?.role || displayUser!.role}
-                          onValueChange={(value) =>
-                            updateUserField("role", value)
-                          }
-                          options={[
-                            { label: "Student", value: UserRole.STUDENT },
-                            { label: "Instructor", value: UserRole.INSTRUCTOR },
-                            { label: "Admin", value: UserRole.ADMIN },
-                            { label: "Developer", value: UserRole.DEV },
-                          ]}
-                          disabled={false}
-                          className="w-36"
-                        />
+                    {/* Enable Dashboard */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Enable Dashboard</p>
+                      <Switch
+                        checked={settings?.enableDashboard ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSetting("enableDashboard", checked)
+                        }
+                        disabled={!editMode}
+                      />
+                    </div>
+
+                    {/* Bug Percentage */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          Bug Percentage
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {settings?.bugPercentage}%
+                        </span>
                       </div>
+                      <Slider
+                        value={[settings?.bugPercentage as number]}
+                        onValueChange={(value) =>
+                          updateSetting("bugPercentage", value[0])
+                        }
+                        min={0}
+                        max={100}
+                        step={5}
+                        disabled={!editMode}
+                        className="w-full"
+                      />
+                    </div>
 
-                      <div className="flex items-center justify-between gap-8">
-                        <p className="text-sm font-medium">Status</p>
-                        <CustomSelect
-                          value={editingUser?.status || displayUser!.status}
-                          onValueChange={(value) =>
-                            updateUserField("status", value)
-                          }
-                          options={[
-                            { label: "Active", value: UserStatus.ACTIVE },
-                            { label: "Locked", value: UserStatus.LOCKED },
-                          ]}
-                          disabled={false}
-                          className="w-36"
-                        />
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            {/* Save/Cancel Buttons - Now spans full width */}
-            {editMode && (
-              <div className="flex gap-3 items-center justify-center pt-4">
-                <Button
-                  onClick={handleSaveAll}
-                  size="default"
-                  className="px-8 rounded-full"
-                >
-                  Save All Changes
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCancelEdit}
-                  size="default"
-                  className="px-8 rounded-full"
-                >
-                  Cancel
-                </Button>
+                    {/* Mode Selection */}
+                    <div className="flex items-center justify-between gap-8">
+                      <p className="text-sm font-medium">Mode</p>
+                      <CustomSelect
+                        value={settings?.mode || UserMode.CODE_BLOCK}
+                        onValueChange={(value) => updateSetting("mode", value)}
+                        options={[
+                          { label: "Block", value: UserMode.CODE_BLOCK },
+                          { label: "Line", value: UserMode.LINE_BY_LINE },
+                          {
+                            label: "Selection",
+                            value: UserMode.CODE_SELECTION,
+                          },
+                        ]}
+                        disabled={!editMode}
+                        className="w-36"
+                      />
+                    </div>
+
+                    {editMode && (
+                      <>
+                        <div className="flex items-center justify-between gap-8">
+                          <p className="text-sm font-medium">Role</p>
+                          <CustomSelect
+                            value={editingUser?.role || displayUser!.role}
+                            onValueChange={(value) =>
+                              updateUserField("role", value)
+                            }
+                            options={[
+                              { label: "Student", value: UserRole.STUDENT },
+                              {
+                                label: "Instructor",
+                                value: UserRole.INSTRUCTOR,
+                              },
+                              { label: "Admin", value: UserRole.ADMIN },
+                              { label: "Developer", value: UserRole.DEV },
+                            ]}
+                            disabled={false}
+                            className="w-36"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-8">
+                          <p className="text-sm font-medium">Status</p>
+                          <CustomSelect
+                            value={editingUser?.status || displayUser!.status}
+                            onValueChange={(value) =>
+                              updateUserField("status", value)
+                            }
+                            options={[
+                              { label: "Active", value: UserStatus.ACTIVE },
+                              { label: "Locked", value: UserStatus.LOCKED },
+                            ]}
+                            disabled={false}
+                            className="w-36"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            )}
+              {/* Save/Cancel Buttons - Now spans full width */}
+              {editMode && (
+                <div className="flex gap-3 items-center justify-center pt-4">
+                  <Button
+                    onClick={handleSaveAll}
+                    size="default"
+                    className="px-8 rounded-full"
+                  >
+                    Save All Changes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                    size="default"
+                    className="px-8 rounded-full"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
 
-            <ActivityStatsCards user={displayUser} />
-          </CardContent>
-        </Card>
+              <ActivityStatsCards user={displayUser} />
+            </CardContent>
+          </Card>
 
-        <div className="flex w-full justify-between gap-6 items-center">
-          <p className="text-xl font-semibold hidden md:block">
-            Student Activity Analytiscs
-          </p>
-          <div className="w-full md:w-80">
-            <ClassesDropdownMenu
-              classes={allClassOptions}
-              onClassSelect={handleClassSelect}
-              selectedId={selectedClassId}
-            />
+          <TypingLogs userId={userId as string} />
+
+          <div className="flex w-full justify-between gap-6 items-center">
+            <p className="text-xl font-semibold hidden md:block">
+              Student Activity Analytics
+            </p>
+            <div className="w-full md:w-80">
+              <ClassesDropdownMenu
+                classes={allClassOptions}
+                onClassSelect={handleClassSelect}
+                selectedId={selectedClassId}
+              />
+            </div>
           </div>
+
+          <ActivityStatsSection
+            userActivity={userActivity}
+            progressData={progressData}
+            loading={userActivityLoading}
+            userMode={displayUser?.settings?.mode}
+            userName={displayUser?.firstName}
+            role={displayUser?.role}
+            showRealtimeToggle={true}
+            showLearningProgress={true}
+            onRealtimeToggle={setIsRealtimeEnabled}
+            onSuggestionClick={handleSuggestionClick}
+          />
+
+          {/*<TypingCharts*/}
+          {/*  userId={displayUser?.id as string}*/}
+          {/*  mode={displayUser?.settings?.mode as UserMode}*/}
+          {/*/>*/}
         </div>
-
-        <ActivityStatsSection
-          userActivity={userActivity}
-          progressData={progressData}
-          loading={userActivityLoading}
-          userMode={displayUser?.settings?.mode}
-          userName={displayUser?.firstName}
-          role={displayUser?.role}
-          showRealtimeToggle={true}
-          showLearningProgress={true}
-          onRealtimeToggle={setIsRealtimeEnabled}
-        />
-
-        <TypingCharts
-          userId={displayUser?.id as string}
-          mode={displayUser?.settings?.mode as UserMode}
-        />
-      </div>
+      )}
     </>
   );
 };

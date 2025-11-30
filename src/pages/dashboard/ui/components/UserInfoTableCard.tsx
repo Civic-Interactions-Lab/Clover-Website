@@ -6,6 +6,9 @@ import StatusBadge from "@/components/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatActivityTimestamp, isOnline } from "@/utils/timeConverter";
 import { useIsMobile } from "@/hooks/useMobile";
+import { Badge } from "@/components/ui/badge";
+import { BugIcon } from "lucide-react";
+import BugBadge from "@/components/BugBadge.tsx";
 
 interface UserInfoTableCardProps {
   // Required props
@@ -30,6 +33,7 @@ interface UserInfoTableCardProps {
   role?: UserRole;
   mode?: UserMode;
   status?: UserStatus;
+  bugPercentage?: number;
 }
 
 const UserInfoTableCard = ({
@@ -50,6 +54,7 @@ const UserInfoTableCard = ({
   role,
   mode,
   status,
+  bugPercentage,
 }: UserInfoTableCardProps) => {
   const isUserOnline = isOnline(lastActivity);
   const activityTimestamp = formatActivityTimestamp(lastActivity);
@@ -93,11 +98,12 @@ const UserInfoTableCard = ({
               )}
             </div>
 
-            {/* Badges Row (Mode, Role, Status) */}
-            <div className="flex gap-2 items-center">
+            {/* Badges Row (Mode, Role, Status, Bug Percentage) */}
+            <div className="flex gap-2 items-center flex-wrap">
               {mode && <ModeBadge mode={mode} />}
               {role && <RoleBadge role={role} />}
               {status && <StatusBadge status={status} />}
+              {bugPercentage && <BugBadge bugPercentage={bugPercentage} />}
             </div>
           </div>
 

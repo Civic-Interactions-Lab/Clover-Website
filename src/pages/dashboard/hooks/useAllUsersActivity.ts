@@ -9,18 +9,23 @@ import {
 } from "@/utils/calculateProgress";
 import QUERY_INTERVALS from "@/constants/queryIntervals";
 import { UseAllUsersOptions } from "@/types/data";
+import { isOnline } from "@/utils/timeConverter";
 
 export const useAllUsersWithActivity = (options?: UseAllUsersOptions) => {
-  const { page = 1, limit = 50, search = "", enabled = true } = options || {};
+  const { search = "", enabled = true } = options || {};
 
   const {
     data: usersData,
     isLoading: usersLoading,
     error: usersError,
   } = useQuery({
-    queryKey: ["allUsers", { page, limit, search }],
+    queryKey: ["allUsers", { search }],
     queryFn: async () => {
-      const { data, error } = await getAllUsers({ page, limit, search });
+      const { data, error } = await getAllUsers({
+        page: 1,
+        limit: 500, // Fetch more users
+        search,
+      });
       if (error) throw new Error(error);
       return data!;
     },
@@ -47,7 +52,7 @@ export const useAllUsersWithActivity = (options?: UseAllUsersOptions) => {
         try {
           const { logs, error } = await getUserActivity(
             user.id,
-            user.settings.mode as UserMode
+            user.settings.mode as UserMode,
           );
 
           if (error || !logs) {
@@ -113,7 +118,7 @@ export const useAllUsersWithActivity = (options?: UseAllUsersOptions) => {
                 new Date(activity.createdAt) > new Date(latest)
                   ? activity.createdAt
                   : latest,
-              activityData.activities[0].createdAt
+              activityData.activities[0].createdAt,
             )
           : null;
 
@@ -143,51 +148,68 @@ export const useAllUsersWithActivity = (options?: UseAllUsersOptions) => {
 
   return {
     users: usersWithActivity,
-    pagination: usersData?.pagination,
     isLoading,
     isFetching,
     error,
-    hasNextPage: usersData?.pagination
-      ? usersData.pagination.page < usersData.pagination.totalPages
-      : false,
-    hasPreviousPage: usersData?.pagination
-      ? usersData.pagination.page > 1
-      : false,
-    totalUsers: usersData?.pagination?.total || 0,
+    totalUsers: usersWithActivity.length,
   };
 };
 
 export const useAllUsersWithActivityAndSearch = (
   initialSearch = "",
-  initialLimit = 10
+  initialLimit = 10,
 ) => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(initialSearch);
   const [limit, setLimit] = useState(initialLimit);
 
+  // Fetch ALL users (no server-side pagination)
   const {
-    users,
-    pagination,
+    users: allUsers,
     isLoading,
     isFetching,
     error,
-    hasNextPage,
-    hasPreviousPage,
-    totalUsers,
+    totalUsers: allUsersCount,
   } = useAllUsersWithActivity({
-    page,
-    limit,
     search,
   });
 
+  // Prioritize online users first, then by recent activity
   const sortedUsers = useMemo(() => {
-    return [...users].sort((a, b) => {
-      return (
-        new Date(b.lastActivity as any).getTime() -
-        new Date(a.lastActivity as any).getTime()
-      );
+    return [...allUsers].sort((a, b) => {
+      const aOnline = isOnline(a.lastActivity);
+      const bOnline = isOnline(b.lastActivity);
+
+      // First priority: online status (online users first)
+      if (aOnline && !bOnline) return -1;
+      if (!aOnline && bOnline) return 1;
+
+      // Second priority: recent activity (most recent first)
+      const aTime = a.lastActivity ? new Date(a.lastActivity).getTime() : 0;
+      const bTime = b.lastActivity ? new Date(b.lastActivity).getTime() : 0;
+
+      return bTime - aTime;
     });
-  }, [users]);
+  }, [allUsers]);
+
+  // Client-side pagination
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    return sortedUsers.slice(startIndex, endIndex);
+  }, [sortedUsers, page, limit]);
+
+  // Calculate pagination info
+  const totalPages = Math.ceil(sortedUsers.length / limit);
+  const hasNextPage = page < totalPages;
+  const hasPreviousPage = page > 1;
+
+  const pagination = {
+    page,
+    limit,
+    total: sortedUsers.length,
+    totalPages,
+  };
 
   const handleSearch = useCallback((newSearch: string) => {
     setSearch(newSearch);
@@ -215,10 +237,8 @@ export const useAllUsersWithActivityAndSearch = (
   }, []);
 
   const lastPage = useCallback(() => {
-    if (pagination) {
-      setPage(pagination.totalPages);
-    }
-  }, [pagination]);
+    setPage(totalPages);
+  }, [totalPages]);
 
   const handleLimitChange = useCallback((newLimit: number) => {
     setLimit(newLimit);
@@ -226,10 +246,10 @@ export const useAllUsersWithActivityAndSearch = (
   }, []);
 
   return {
-    // Data
-    users: sortedUsers,
+    // Sorted users
+    users: paginatedUsers,
     pagination,
-    totalUsers,
+    totalUsers: sortedUsers.length,
     limit,
 
     // Loading states

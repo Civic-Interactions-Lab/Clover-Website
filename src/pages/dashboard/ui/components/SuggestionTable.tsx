@@ -11,38 +11,51 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import CustomSelect from "@/components/CustomSelect";
 
 enum EventFilter {
-  TOTAL = "Total",
+  ALL = "All",
   ACCEPT = "Accept",
   REJECT = "Reject",
 }
 
-interface SuggestionTableProps {
-  logItems: UserActivityLogItem[];
-  startIndex?: number;
-  mode: UserMode;
+enum BugFilter {
+  ALL = "All",
+  HAS_BUG = "Has Bug",
+  NO_BUG = "No Bug",
 }
 
-/**
- * SuggestionTable component displays a table of user activity log items and navigates to detailed view when clicked.
- * @param param0 - props for the SuggestionTable component
- * @param param0.logItems - array of log items to display in the table
- * @param param0.startIndex - starting index for numbering (default is 0)
- * @param param0.mode - user mode for suggestion context
- * @returns
- */
+enum CorrectnessFilter {
+  ALL = "All",
+  CORRECT = "Correct",
+  INCORRECT = "Incorrect",
+}
+
+interface SuggestionTableProps {
+  logItems: UserActivityLogItem[];
+  mode?: UserMode;
+  defaultItemsPerPage?: number;
+  onRowClick?: (
+    logItem: UserActivityLogItem,
+    index: number,
+    allLogItems: UserActivityLogItem[],
+  ) => void;
+}
+
 export const SuggestionTable = ({
   logItems,
-  startIndex = 0,
-  mode,
+  mode = UserMode.LINE_BY_LINE,
+  defaultItemsPerPage = 10,
+  onRowClick,
 }: SuggestionTableProps) => {
-  const navigate = useNavigate();
-  const [eventFilter, setEventFilter] = useState<EventFilter>(
-    EventFilter.TOTAL
+  const [eventFilter, setEventFilter] = useState<EventFilter>(EventFilter.ALL);
+  const [bugFilter, setBugFilter] = useState<BugFilter>(BugFilter.ALL);
+  const [correctnessFilter, setCorrectnessFilter] = useState<CorrectnessFilter>(
+    CorrectnessFilter.ALL,
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
 
   const isAcceptEvent = useCallback((event: string) => {
     return ACCEPT_EVENTS.includes(event);
@@ -51,68 +64,186 @@ export const SuggestionTable = ({
   const getDecisionCorrectness = (logItem: UserActivityLogItem) => {
     const isAccept = isAcceptEvent(logItem.event);
     const hasBug = logItem.hasBug || logItem.hasBug;
-
     const isCorrect = (isAccept && !hasBug) || (!isAccept && hasBug);
     return isCorrect ? "Correct" : "Incorrect";
   };
 
+  // Filter data based on all filters
   const filteredLogItems = useMemo(() => {
     return logItems.filter((logItem) => {
       const isAccept = isAcceptEvent(logItem.event);
       const isReject = REJECT_EVENTS.includes(logItem.event);
+      const hasBug = logItem.hasBug || logItem.hasBug;
+      const correctness = getDecisionCorrectness(logItem);
 
+      // Event filter
+      let passesEventFilter = false;
       switch (eventFilter) {
         case EventFilter.ACCEPT:
-          return isAccept;
+          passesEventFilter = isAccept;
+          break;
         case EventFilter.REJECT:
-          return isReject;
-        case EventFilter.TOTAL:
-          return isAccept || isReject;
-        default:
-          return false;
+          passesEventFilter = isReject;
+          break;
+        case EventFilter.ALL:
+          passesEventFilter = isAccept || isReject;
+          break;
       }
+
+      // Bug filter
+      let passesBugFilter = false;
+      switch (bugFilter) {
+        case BugFilter.HAS_BUG:
+          passesBugFilter = hasBug || false;
+          break;
+        case BugFilter.NO_BUG:
+          passesBugFilter = !hasBug;
+          break;
+        case BugFilter.ALL:
+          passesBugFilter = true;
+          break;
+      }
+
+      // Correctness filter
+      let passesCorrectnessFilter = false;
+      switch (correctnessFilter) {
+        case CorrectnessFilter.CORRECT:
+          passesCorrectnessFilter = correctness === "Correct";
+          break;
+        case CorrectnessFilter.INCORRECT:
+          passesCorrectnessFilter = correctness === "Incorrect";
+          break;
+        case CorrectnessFilter.ALL:
+          passesCorrectnessFilter = true;
+          break;
+      }
+
+      return passesEventFilter && passesBugFilter && passesCorrectnessFilter;
     });
-  }, [logItems, eventFilter, isAcceptEvent]);
+  }, [logItems, eventFilter, bugFilter, correctnessFilter, isAcceptEvent]);
+
+  // Calculate pagination
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLogItems.length / itemsPerPage),
+  );
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredLogItems.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter or items per page changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [eventFilter, bugFilter, correctnessFilter, itemsPerPage]);
 
   const handleRowClick = (logItem: UserActivityLogItem, index: number) => {
-    navigate("/suggestion-details", {
-      state: {
-        logItem,
-        logItems: filteredLogItems, // Use filtered items for navigation context
-        currentIndex: index,
-        mode,
-        correctness: getDecisionCorrectness(logItem),
-      },
-    });
+    if (onRowClick) {
+      onRowClick(logItem, startIndex + index, filteredLogItems);
+    }
   };
 
   const getFilterStats = () => {
     const total = filteredLogItems.length;
     const correct = filteredLogItems.filter(
-      (item) => getDecisionCorrectness(item) === "Correct"
+      (item) => getDecisionCorrectness(item) === "Correct",
     ).length;
     const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
 
     return { total, correct, accuracy };
   };
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const maxVisiblePages = 5;
+    const pages: number[] = [];
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else if (currentPage <= 3) {
+      for (let i = 1; i <= maxVisiblePages; i++) {
+        pages.push(i);
+      }
+    } else if (currentPage >= totalPages - 2) {
+      for (let i = totalPages - 4; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+        pages.push(i);
+      }
+    }
+
+    return pages;
+  };
+
   const stats = getFilterStats();
+
+  const eventFilterOptions = [
+    { value: EventFilter.ALL, label: "All" },
+    { value: EventFilter.ACCEPT, label: "Accept" },
+    { value: EventFilter.REJECT, label: "Reject" },
+  ];
+
+  const bugFilterOptions = [
+    { value: BugFilter.ALL, label: "All" },
+    { value: BugFilter.HAS_BUG, label: "Has Bug" },
+    { value: BugFilter.NO_BUG, label: "No Bug" },
+  ];
+
+  const correctnessFilterOptions = [
+    { value: CorrectnessFilter.ALL, label: "All" },
+    { value: CorrectnessFilter.CORRECT, label: "Correct" },
+    { value: CorrectnessFilter.INCORRECT, label: "Incorrect" },
+  ];
+
+  const itemsPerPageOptions = [
+    { value: "10", label: "10 per page" },
+    { value: "20", label: "20 per page" },
+    { value: "50", label: "50 per page" },
+    { value: "100", label: "100 per page" },
+    { value: "200", label: "200 per page" },
+    { value: "500", label: "500 per page" },
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h3 className="font-semibold">Suggestions</h3>
-          <CustomSelect
-            value={eventFilter}
-            onValueChange={(value) => setEventFilter(value as EventFilter)}
-            options={[
-              { value: EventFilter.TOTAL, label: "Total" },
-              { value: EventFilter.ACCEPT, label: "Accept" },
-              { value: EventFilter.REJECT, label: "Reject" },
-            ]}
-            className="w-24"
-          />
+      {/* Header with filters and stats */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <h3 className="font-semibold text-sm">Suggestions</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <CustomSelect
+              value={eventFilter}
+              onValueChange={setEventFilter}
+              options={eventFilterOptions}
+              className="w-24"
+            />
+            <CustomSelect
+              value={bugFilter}
+              onValueChange={setBugFilter}
+              options={bugFilterOptions}
+              className="w-28"
+            />
+            <CustomSelect
+              value={correctnessFilter}
+              onValueChange={setCorrectnessFilter}
+              options={correctnessFilterOptions}
+              className="w-28"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -128,7 +259,28 @@ export const SuggestionTable = ({
         </div>
       </div>
 
-      <div className="border rounded-md shadow-sm overflow-hidden">
+      {/* Pagination controls - Top */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-semibold">Show</label>
+          <CustomSelect
+            value={itemsPerPage.toString()}
+            onValueChange={handleItemsPerPageChange}
+            options={itemsPerPageOptions}
+            className="w-32"
+          />
+        </div>
+
+        <div className="text-xs md:text-sm text-muted-foreground">
+          <span>
+            Page {currentPage} of {totalPages} ({filteredLogItems.length} total{" "}
+            {filteredLogItems.length === 1 ? "result" : "results"})
+          </span>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-md shadow-sm overflow-auto">
         <Table>
           <TableHeader className="bg-muted">
             <TableRow>
@@ -140,17 +292,17 @@ export const SuggestionTable = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLogItems.length === 0 ? (
+            {currentItems.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No {eventFilter.toLowerCase()} suggestions found
+                  No suggestions found matching the selected filters
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLogItems.map((logItem, index) => {
+              currentItems.map((logItem, index) => {
                 const isAccept = isAcceptEvent(logItem.event);
                 const hasBug = logItem.hasBug || logItem.hasBug;
                 const correctness = getDecisionCorrectness(logItem);
@@ -166,7 +318,7 @@ export const SuggestionTable = ({
                     </TableCell>
                     <TableCell>
                       {new Date(
-                        logItem.createdAt || logItem.createdAt
+                        logItem.createdAt || logItem.createdAt,
                       ).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
@@ -202,6 +354,43 @@ export const SuggestionTable = ({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination controls - Bottom */}
+      {filteredLogItems.length > 0 && (
+        <div className="flex justify-center items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+
+          <div className="flex items-center space-x-1">
+            {getPageNumbers().map((pageNum) => (
+              <Button
+                key={pageNum}
+                variant={currentPage === pageNum ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(pageNum)}
+                className="w-8 h-8 p-0"
+              >
+                {pageNum}
+              </Button>
+            ))}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
