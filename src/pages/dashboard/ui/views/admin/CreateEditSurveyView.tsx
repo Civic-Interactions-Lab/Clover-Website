@@ -43,7 +43,7 @@ const CreateEditSurveyView = () => {
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, any>>(
-    new Map()
+    new Map(),
   );
 
   // Get surveyId from URL - you'll need to replace this with your router logic
@@ -149,8 +149,8 @@ const CreateEditSurveyView = () => {
       // Always update local state
       setQuestions((prev) =>
         prev.map((question) =>
-          question.id === questionId ? { ...question, ...updates } : question
-        )
+          question.id === questionId ? { ...question, ...updates } : question,
+        ),
       );
 
       setHasUnsavedChanges(true);
@@ -163,7 +163,7 @@ const CreateEditSurveyView = () => {
         return newMap;
       });
     },
-    [questions]
+    [questions],
   );
 
   const addQuestion = async (
@@ -174,12 +174,12 @@ const CreateEditSurveyView = () => {
       | "likert"
       | "section_title"
       | "slider"
-      | "nasa_tlx"
+      | "nasa_tlx",
   ) => {
     // Get the next order number for all questions (including section titles)
     const maxQuestionNumber = Math.max(
       ...questions.map((q) => q.question_number),
-      0
+      0,
     );
     const newQuestionNumber = maxQuestionNumber + 1;
 
@@ -652,7 +652,7 @@ interface QuestionItemProps {
   setEditingQuestion: (id: string | null) => void;
   updateQuestion: (
     questionId: string,
-    updates: Partial<SurveyQuestion>
+    updates: Partial<SurveyQuestion>,
   ) => void;
   deleteQuestion: (questionId: string) => void;
   moveUp: (questionId: string) => void;
@@ -686,7 +686,7 @@ const QuestionItem = ({
   const handleDeleteOption = (optionIndex: number) => {
     if (!question.question_options) return;
     const newOptions = question.question_options.filter(
-      (_, index) => index !== optionIndex
+      (_, index) => index !== optionIndex,
     );
     updateQuestion(question.id, { question_options: newOptions });
   };
@@ -727,7 +727,7 @@ const QuestionItem = ({
             variant={editingQuestion === question.id ? "outline" : "default"}
             onClick={() =>
               setEditingQuestion(
-                editingQuestion === question.id ? null : question.id
+                editingQuestion === question.id ? null : question.id,
               )
             }
           >
@@ -817,25 +817,24 @@ const QuestionItem = ({
             </div>
           )}
 
-          {question.question_type !== "section_title" &&
-            question.question_type !== "nasa_tlx" && (
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id={`required-${question.id}`}
-                  checked={question.is_required}
-                  onChange={(e) =>
-                    updateQuestion(question.id, {
-                      is_required: e.target.checked,
-                    })
-                  }
-                  className="rounded"
-                />
-                <Label htmlFor={`required-${question.id}`} className="text-sm">
-                  Required
-                </Label>
-              </div>
-            )}
+          {question.question_type !== "section_title" && (
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id={`required-${question.id}`}
+                checked={question.is_required}
+                onChange={(e) =>
+                  updateQuestion(question.id, {
+                    is_required: e.target.checked,
+                  })
+                }
+                className="rounded"
+              />
+              <Label htmlFor={`required-${question.id}`} className="text-sm">
+                Required
+              </Label>
+            </div>
+          )}
 
           {question.question_type === "nasa_tlx" && (
             <div>
@@ -921,7 +920,7 @@ const QuestionItem = ({
                         onClick={() => {
                           const newScales =
                             question.question_options?.filter(
-                              (_, i) => i !== index
+                              (_, i) => i !== index,
                             ) || [];
                           updateQuestion(question.id, {
                             question_options: newScales,
@@ -983,7 +982,7 @@ const QuestionItem = ({
                   ].map((standardScale) => {
                     const scaleString = `${standardScale.name}|${standardScale.low}|${standardScale.high}`;
                     const alreadyExists = question.question_options?.some(
-                      (option) => option.split("|")[0] === standardScale.name
+                      (option) => option.split("|")[0] === standardScale.name,
                     );
 
                     return (
