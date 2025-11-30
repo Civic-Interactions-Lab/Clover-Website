@@ -12,18 +12,24 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import CustomSelect from "@/components/CustomSelect";
 
 enum EventFilter {
-  TOTAL = "Total",
+  ALL = "All",
   ACCEPT = "Accept",
   REJECT = "Reject",
+}
+
+enum BugFilter {
+  ALL = "All",
+  HAS_BUG = "Has Bug",
+  NO_BUG = "No Bug",
+}
+
+enum CorrectnessFilter {
+  ALL = "All",
+  CORRECT = "Correct",
+  INCORRECT = "Incorrect",
 }
 
 interface SuggestionTableProps {
@@ -43,8 +49,10 @@ export const SuggestionTable = ({
   defaultItemsPerPage = 10,
   onRowClick,
 }: SuggestionTableProps) => {
-  const [eventFilter, setEventFilter] = useState<EventFilter>(
-    EventFilter.TOTAL,
+  const [eventFilter, setEventFilter] = useState<EventFilter>(EventFilter.ALL);
+  const [bugFilter, setBugFilter] = useState<BugFilter>(BugFilter.ALL);
+  const [correctnessFilter, setCorrectnessFilter] = useState<CorrectnessFilter>(
+    CorrectnessFilter.ALL,
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(defaultItemsPerPage);
@@ -60,24 +68,59 @@ export const SuggestionTable = ({
     return isCorrect ? "Correct" : "Incorrect";
   };
 
-  // Filter data based on event filter
+  // Filter data based on all filters
   const filteredLogItems = useMemo(() => {
     return logItems.filter((logItem) => {
       const isAccept = isAcceptEvent(logItem.event);
       const isReject = REJECT_EVENTS.includes(logItem.event);
+      const hasBug = logItem.hasBug || logItem.hasBug;
+      const correctness = getDecisionCorrectness(logItem);
 
+      // Event filter
+      let passesEventFilter = false;
       switch (eventFilter) {
         case EventFilter.ACCEPT:
-          return isAccept;
+          passesEventFilter = isAccept;
+          break;
         case EventFilter.REJECT:
-          return isReject;
-        case EventFilter.TOTAL:
-          return isAccept || isReject;
-        default:
-          return false;
+          passesEventFilter = isReject;
+          break;
+        case EventFilter.ALL:
+          passesEventFilter = isAccept || isReject;
+          break;
       }
+
+      // Bug filter
+      let passesBugFilter = false;
+      switch (bugFilter) {
+        case BugFilter.HAS_BUG:
+          passesBugFilter = hasBug || false;
+          break;
+        case BugFilter.NO_BUG:
+          passesBugFilter = !hasBug;
+          break;
+        case BugFilter.ALL:
+          passesBugFilter = true;
+          break;
+      }
+
+      // Correctness filter
+      let passesCorrectnessFilter = false;
+      switch (correctnessFilter) {
+        case CorrectnessFilter.CORRECT:
+          passesCorrectnessFilter = correctness === "Correct";
+          break;
+        case CorrectnessFilter.INCORRECT:
+          passesCorrectnessFilter = correctness === "Incorrect";
+          break;
+        case CorrectnessFilter.ALL:
+          passesCorrectnessFilter = true;
+          break;
+      }
+
+      return passesEventFilter && passesBugFilter && passesCorrectnessFilter;
     });
-  }, [logItems, eventFilter, isAcceptEvent]);
+  }, [logItems, eventFilter, bugFilter, correctnessFilter, isAcceptEvent]);
 
   // Calculate pagination
   const totalPages = Math.max(
@@ -91,7 +134,7 @@ export const SuggestionTable = ({
   // Reset to page 1 when filter or items per page changes
   useMemo(() => {
     setCurrentPage(1);
-  }, [eventFilter, itemsPerPage]);
+  }, [eventFilter, bugFilter, correctnessFilter, itemsPerPage]);
 
   const handleRowClick = (logItem: UserActivityLogItem, index: number) => {
     if (onRowClick) {
@@ -148,25 +191,59 @@ export const SuggestionTable = ({
 
   const stats = getFilterStats();
 
+  const eventFilterOptions = [
+    { value: EventFilter.ALL, label: "All" },
+    { value: EventFilter.ACCEPT, label: "Accept" },
+    { value: EventFilter.REJECT, label: "Reject" },
+  ];
+
+  const bugFilterOptions = [
+    { value: BugFilter.ALL, label: "All" },
+    { value: BugFilter.HAS_BUG, label: "Has Bug" },
+    { value: BugFilter.NO_BUG, label: "No Bug" },
+  ];
+
+  const correctnessFilterOptions = [
+    { value: CorrectnessFilter.ALL, label: "All" },
+    { value: CorrectnessFilter.CORRECT, label: "Correct" },
+    { value: CorrectnessFilter.INCORRECT, label: "Incorrect" },
+  ];
+
+  const itemsPerPageOptions = [
+    { value: "10", label: "10 per page" },
+    { value: "20", label: "20 per page" },
+    { value: "50", label: "50 per page" },
+    { value: "100", label: "100 per page" },
+    { value: "200", label: "200 per page" },
+    { value: "500", label: "500 per page" },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Header with filters and stats */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h3 className="font-semibold">Suggestions</h3>
-          <Select
-            value={eventFilter}
-            onValueChange={(value) => setEventFilter(value as EventFilter)}
-          >
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EventFilter.TOTAL}>Total</SelectItem>
-              <SelectItem value={EventFilter.ACCEPT}>Accept</SelectItem>
-              <SelectItem value={EventFilter.REJECT}>Reject</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <h3 className="font-semibold text-sm">Suggestions</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <CustomSelect
+              value={eventFilter}
+              onValueChange={setEventFilter}
+              options={eventFilterOptions}
+              className="w-24"
+            />
+            <CustomSelect
+              value={bugFilter}
+              onValueChange={setBugFilter}
+              options={bugFilterOptions}
+              className="w-28"
+            />
+            <CustomSelect
+              value={correctnessFilter}
+              onValueChange={setCorrectnessFilter}
+              options={correctnessFilterOptions}
+              className="w-28"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -183,25 +260,15 @@ export const SuggestionTable = ({
       </div>
 
       {/* Pagination controls - Top */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium">Show:</label>
-          <Select
+          <label className="text-sm font-semibold">Show</label>
+          <CustomSelect
             value={itemsPerPage.toString()}
             onValueChange={handleItemsPerPageChange}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10 per page</SelectItem>
-              <SelectItem value="20">20 per page</SelectItem>
-              <SelectItem value="50">50 per page</SelectItem>
-              <SelectItem value="100">100 per page</SelectItem>
-              <SelectItem value="200">200 per page</SelectItem>
-              <SelectItem value="500">500 per page</SelectItem>
-            </SelectContent>
-          </Select>
+            options={itemsPerPageOptions}
+            className="w-32"
+          />
         </div>
 
         <div className="text-xs md:text-sm text-muted-foreground">
@@ -231,7 +298,7 @@ export const SuggestionTable = ({
                   colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No {eventFilter.toLowerCase()} suggestions found
+                  No suggestions found matching the selected filters
                 </TableCell>
               </TableRow>
             ) : (

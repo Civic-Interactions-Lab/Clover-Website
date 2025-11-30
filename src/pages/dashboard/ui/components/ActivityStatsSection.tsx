@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { CustomTooltip } from "@/components/CustomTooltip";
 import StatCard from "@/components/StatCard";
 import SuggestionTable from "@/pages/dashboard/ui/components/SuggestionTable";
+import CollapsibleChartSection from "@/components/CollapsibleChartSection";
 import { ACCEPT_EVENTS, REJECT_EVENTS } from "@/types/event";
 import Loading from "@/components/Loading";
 import NoData from "@/components/NoData";
@@ -185,7 +186,6 @@ const ActivityStatsSection = ({
         />
       </div>
 
-      {/* First Row Charts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <AccuracyPieChart
           progressData={progressData}
@@ -195,35 +195,62 @@ const ActivityStatsSection = ({
       </div>
 
       {/* Accuracy Distribution Chart */}
-      <AccuracyDistributionBarChart activities={chartData} />
+      <CollapsibleChartSection
+        title="Accuracy Distribution"
+        defaultExpanded={false}
+      >
+        <AccuracyDistributionBarChart activities={chartData} />
+      </CollapsibleChartSection>
 
       {/* Second Row Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ResponseTimeBarChart
-          userActivity={responseTimeData}
-          title="Average Response Time"
-        />
-        <AccuracyTimeLineChart userActivity={responseTimeData} />
-      </div>
+      <CollapsibleChartSection
+        title="Response Time & Accuracy Over Time"
+        defaultExpanded={false}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <ResponseTimeBarChart
+            userActivity={responseTimeData}
+            title="Average Response Time"
+          />
+          <AccuracyTimeLineChart userActivity={responseTimeData} />
+        </div>
+      </CollapsibleChartSection>
 
-      <MinuteDecisionChart
-        activities={chartData}
+      {/* Decisions Per Minute */}
+      <CollapsibleChartSection
         title="Decisions Per Minute"
-      />
+        defaultExpanded={false}
+      >
+        <MinuteDecisionChart
+          activities={chartData}
+          title="Decisions Per Minute"
+        />
+      </CollapsibleChartSection>
 
       {/* Learning Progress Chart - conditionally shown */}
       {showLearningProgress && role === UserRole.STUDENT && (
-        <LearningProgressChart
-          userActivity={userActivity}
-          windowSize={20}
+        <CollapsibleChartSection
           title="Learning Progress"
-        />
+          defaultExpanded={false}
+        >
+          <LearningProgressChart
+            userActivity={userActivity}
+            windowSize={20}
+            title="Learning Progress"
+          />
+        </CollapsibleChartSection>
       )}
 
-      <ResponseTimeLineChart
-        userActivity={responseTimeData}
+      {/* Response Time Trends */}
+      <CollapsibleChartSection
         title="Response Time Trends"
-      />
+        defaultExpanded={false}
+      >
+        <ResponseTimeLineChart
+          userActivity={responseTimeData}
+          title="Response Time Trends"
+        />
+      </CollapsibleChartSection>
 
       {/* Activity Table */}
       <Card className="p-6">
