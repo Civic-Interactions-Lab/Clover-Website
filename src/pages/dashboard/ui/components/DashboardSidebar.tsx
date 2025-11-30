@@ -106,31 +106,30 @@ const DashboardSidebar = ({
         ))}
       </SidebarContent>
       <SidebarFooter className="pb-4">
+        {onRoleChange && (
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold text-muted-foreground px-1.5">
+              Viewing as
+            </Label>
+            <Select
+              value={effectiveRole}
+              onValueChange={(value) => onRoleChange(value as UserRole)}
+            >
+              <SelectTrigger className="w-full text-sm bg-background">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {selectableRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role[0] + role.slice(1).toLowerCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <SidebarGroup className="mb-2">
-          {userRole !== UserRole.STUDENT && (
-            <SidebarGroupContent>
-              {onRoleChange && (
-                <div className="space-y-1">
-                  <SidebarGroupLabel>Viewing as</SidebarGroupLabel>
-                  <Select
-                    value={effectiveRole}
-                    onValueChange={(value) => onRoleChange(value as UserRole)}
-                  >
-                    <SelectTrigger className="w-full text-sm bg-background">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectableRoles.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role[0] + role.slice(1).toLowerCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </SidebarGroupContent>
-          )}
           <SidebarGroupLabel>Actions</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

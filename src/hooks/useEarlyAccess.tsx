@@ -2,120 +2,120 @@ import { createContext, JSX, useContext, useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
 const EarlyAccessContext = createContext<{
-	isAuthenticated: boolean;
-	login: (username: string, password: string) => Promise<boolean>;
-	logout: () => void;
-	isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (username: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  isLoading: boolean;
 }>({
-	isAuthenticated: false,
-	login: async () => false,
-	logout: () => { },
-	isLoading: false,
+  isAuthenticated: false,
+  login: async () => false,
+  logout: () => {},
+  isLoading: false,
 });
 
 // Provider component
 export const EarlyAccessProvider = ({
-	children,
+  children,
 }: {
-	children: React.ReactNode;
+  children: React.ReactNode;
 }) => {
-	const [isAuthenticated, setIsAuthenticated] = useState(false);
-	const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-	// Check for existing session on mount
-	useEffect(() => {
-		const checkSession = () => {
-			const stored = localStorage.getItem("earlyAccessAuth");
-			if (stored) {
-				try {
-					const { authenticated, expiry } = JSON.parse(stored);
-					if (authenticated && new Date().getTime() < expiry) {
-						setIsAuthenticated(true);
-					} else {
-						localStorage.removeItem("earlyAccessAuth");
-					}
-				} catch (error) {
-					localStorage.removeItem("earlyAccessAuth");
-				}
-			}
-			setIsLoading(false);
-		};
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = () => {
+      const stored = localStorage.getItem("earlyAccessAuth");
+      if (stored) {
+        try {
+          const { authenticated, expiry } = JSON.parse(stored);
+          if (authenticated && new Date().getTime() < expiry) {
+            setIsAuthenticated(true);
+          } else {
+            localStorage.removeItem("earlyAccessAuth");
+          }
+        } catch (error) {
+          localStorage.removeItem("earlyAccessAuth");
+        }
+      }
+      setIsLoading(false);
+    };
 
-		checkSession();
-	}, []);
+    checkSession();
+  }, []);
 
-	const login = async (
-		username: string,
-		password: string
-	): Promise<boolean> => {
-		setIsLoading(true);
+  const login = async (
+    username: string,
+    password: string
+  ): Promise<boolean> => {
+    setIsLoading(true);
 
-		const VALID_CREDENTIALS = {
-			username: "admin",
-			password: "preview123",
-		};
+    const VALID_CREDENTIALS = {
+      username: "admin",
+      password: "preview123",
+    };
 
-		if (
-			username === VALID_CREDENTIALS.username &&
-			password === VALID_CREDENTIALS.password
-		) {
-			setIsAuthenticated(true);
+    if (
+      username === VALID_CREDENTIALS.username &&
+      password === VALID_CREDENTIALS.password
+    ) {
+      setIsAuthenticated(true);
 
-			// Store session with 1 Week expiry
-			const expiry = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
-			localStorage.setItem(
-				"earlyAccessAuth",
-				JSON.stringify({
-					authenticated: true,
-					expiry,
-				})
-			);
+      // Store session with 24 hour expiry
+      const expiry = new Date().getTime() + 24 * 60 * 60 * 1000;
+      localStorage.setItem(
+        "earlyAccessAuth",
+        JSON.stringify({
+          authenticated: true,
+          expiry,
+        })
+      );
 
-			setIsLoading(false);
-			return true;
-		}
+      setIsLoading(false);
+      return true;
+    }
 
-		setIsLoading(false);
-		return false;
-	};
+    setIsLoading(false);
+    return false;
+  };
 
-	const logout = () => {
-		setIsAuthenticated(false);
-		localStorage.removeItem("earlyAccessAuth");
-	};
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem("earlyAccessAuth");
+  };
 
-	return (
-		<EarlyAccessContext.Provider
-			value={{ isAuthenticated, login, logout, isLoading }}
-		>
-			{children}
-		</EarlyAccessContext.Provider>
-	);
+  return (
+    <EarlyAccessContext.Provider
+      value={{ isAuthenticated, login, logout, isLoading }}
+    >
+      {children}
+    </EarlyAccessContext.Provider>
+  );
 };
 
 export const useEarlyAccess = () => {
-	const context = useContext(EarlyAccessContext);
-	if (!context) {
-		throw new Error("useEarlyAccess must be used within EarlyAccessProvider");
-	}
-	return context;
+  const context = useContext(EarlyAccessContext);
+  if (!context) {
+    throw new Error("useEarlyAccess must be used within EarlyAccessProvider");
+  }
+  return context;
 };
 
 export const ConstructionRoute = (): JSX.Element => {
-	const { isAuthenticated, isLoading } = useEarlyAccess();
+  const { isAuthenticated, isLoading } = useEarlyAccess();
 
-	// Show loading spinner while checking authentication
-	if (isLoading) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-			</div>
-		);
-	}
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-	if (!isAuthenticated) {
-		return <Navigate to="/early-access" replace />;
-	}
+  if (!isAuthenticated) {
+    return <Navigate to="/early-access" replace />;
+  }
 
-	return <Outlet />;
+  return <Outlet />;
 };
