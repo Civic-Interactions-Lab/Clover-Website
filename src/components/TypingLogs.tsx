@@ -22,6 +22,8 @@ import {
   SkipForward,
   SkipBack,
   Bot,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 type TypingLogData = {
@@ -56,7 +58,7 @@ interface TypingLogsProps {
   userId: string;
 }
 
-const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
+const TypingLogs = ({ userId }: TypingLogsProps) => {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +70,12 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
   // Event-specific navigation state
   const [selectedEventType, setSelectedEventType] =
     useState<string>("SUGGESTION_SHOWN");
+
+  // Pagination state - removed maxRecords since we're fetching all
+  const [totalRecordsFound, setTotalRecordsFound] = useState(0);
+  const [fetchCancelled, setFetchCancelled] = useState(false);
+  const [batchesFetched, setBatchesFetched] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState<string>("");
 
   // Focus on these 5 events
   const focusEvents = [
@@ -114,14 +122,30 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
     fetchUser();
   }, [userId]);
 
-  useEffect(() => {
-    const fetchTypingLogs = async () => {
-      if (!userId) return;
+  const fetchTypingLogs = async () => {
+    if (!userId) return;
 
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
+    setFetchCancelled(false);
+    setTotalRecordsFound(0);
+    setBatchesFetched(0);
+    setLoadingProgress("Initializing...");
 
-      try {
+    try {
+      const allLogs: TypingLogData[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMoreData = true;
+      let totalFetched = 0;
+
+      while (hasMoreData && !fetchCancelled) {
+        const currentBatch = Math.floor(from / batchSize) + 1;
+        setBatchesFetched(currentBatch);
+        setLoadingProgress(
+          `Fetching batch ${currentBatch}... (${totalFetched.toLocaleString()} records so far)`,
+        );
+
         const { data, error } = await supabase
           .from("typing_log")
           .select(
@@ -142,41 +166,74 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
           )
           .eq("user_id", userId)
           .in("event", focusEvents)
-          .order("created_at", { ascending: true });
+          .order("created_at", { ascending: true })
+          .range(from, from + batchSize - 1);
 
         if (error) {
           throw error;
         }
 
         const logs = data as unknown as TypingLogData[];
+        allLogs.push(...logs);
+        totalFetched += logs.length;
 
-        // Process logs into timeline events
-        const timelineEvents: TimelineEvent[] = logs.map((log) => ({
-          id: log.id,
-          timestamp: log.created_at,
-          type: log.event === "TYPING" ? "typing" : "suggestion_event",
-          content: log.raw_text,
-          event: log.event || "TYPING", // Default to TYPING
-          suggestionData: log.line_suggestions
-            ? {
-                correctLine: log.line_suggestions.correct_line || null,
-                incorrectLine: log.line_suggestions.incorrect_line || null,
-                shownBug: log.line_suggestions.shown_bug ?? null,
-              }
-            : undefined,
-        }));
+        setTotalRecordsFound(totalFetched);
 
-        setTimeline(timelineEvents);
-      } catch (err) {
-        console.error("Error fetching typing logs:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch typing logs",
-        );
-      } finally {
-        setLoading(false);
+        // Check if we got a full batch, if not, we're done
+        hasMoreData = logs.length === batchSize;
+        from += batchSize;
+
+        // Add a small delay to prevent overwhelming the server
+        if (hasMoreData) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       }
-    };
 
+      if (fetchCancelled) {
+        return;
+      }
+
+      setLoadingProgress(
+        `Processing ${totalFetched.toLocaleString()} records...`,
+      );
+
+      // Process logs into timeline events
+      const timelineEvents: TimelineEvent[] = allLogs.map((log) => ({
+        id: log.id,
+        timestamp: log.created_at,
+        type: log.event === "TYPING" ? "typing" : "suggestion_event",
+        content: log.raw_text,
+        event: log.event || "TYPING", // Default to TYPING
+        suggestionData: log.line_suggestions
+          ? {
+              correctLine: log.line_suggestions.correct_line || null,
+              incorrectLine: log.line_suggestions.incorrect_line || null,
+              shownBug: log.line_suggestions.shown_bug ?? null,
+            }
+          : undefined,
+      }));
+
+      setTimeline(timelineEvents);
+      setCurrentLogIndex(0); // Reset to first record
+    } catch (err) {
+      console.error("Error fetching typing logs:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch typing logs",
+      );
+    } finally {
+      setLoading(false);
+      setLoadingProgress("");
+    }
+  };
+
+  const cancelFetch = () => {
+    setFetchCancelled(true);
+    setLoading(false);
+    setLoadingProgress("");
+  };
+
+  // Trigger fetch when userId changes
+  useEffect(() => {
     fetchTypingLogs();
   }, [userId]);
 
@@ -346,6 +403,8 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
   // Add keyboard navigation
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (loading) return; // Don't navigate while loading
+
       switch (event.key) {
         case "ArrowLeft":
           event.preventDefault();
@@ -360,20 +419,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [currentLogIndex, timeline.length]);
-
-  if (loading) {
-    return (
-      <Card className="overflow-hidden">
-        <CardContent className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="ml-2 text-muted-foreground">
-            Loading typing logs...
-          </span>
-        </CardContent>
-      </Card>
-    );
-  }
+  }, [currentLogIndex, timeline.length, loading]);
 
   if (!userId) {
     return (
@@ -398,6 +444,13 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
             <XCircle className="size-5" />
             <p>Error: {error}</p>
           </div>
+          <button
+            onClick={fetchTypingLogs}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw className="size-4" />
+            Retry
+          </button>
         </CardContent>
       </Card>
     );
@@ -422,21 +475,57 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
               </span>
               <span>•</span>
               <Hash className="size-4" />
-              <span>{timeline.length} Events</span>
+              <span>{timeline.length.toLocaleString()} Events</span>
             </div>
           </div>
         </div>
+
+        <button
+          onClick={fetchTypingLogs}
+          disabled={loading}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center gap-2"
+        >
+          <RefreshCw className="size-4" />
+          Reload All Records
+        </button>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {timeline.length === 0 ? (
+        {/* Loading State */}
+        {loading && (
+          <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center space-y-4">
+                <Loader2 className="size-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                    Loading All Typing Logs
+                  </h3>
+                  <p className="text-blue-700 dark:text-blue-300 mb-2">
+                    {loadingProgress}
+                  </p>
+                  <div className="flex items-center gap-4 text-sm text-blue-600 dark:text-blue-400">
+                    <span>Batches: {batchesFetched}</span>
+                    <span>•</span>
+                    <span>Records: {totalRecordsFound.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {timeline.length === 0 && !loading ? (
           <div className="text-center py-12">
             <FileText className="size-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground text-lg">
               No typing logs found for this user.
             </p>
+            <p className="text-muted-foreground text-sm mt-2">
+              Check if the user has any activity in the system.
+            </p>
           </div>
-        ) : (
+        ) : timeline.length > 0 && !loading ? (
           <>
             {/* Navigation Controls Card */}
             <Card className="bg-muted/40">
@@ -463,7 +552,8 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                     </button>
                     <div className="flex items-center justify-center sm:justify-start lg:justify-center">
                       <div className="px-4 py-2 bg-background border rounded-lg text-sm font-medium min-w-fit">
-                        {currentLogIndex + 1} / {timeline.length}
+                        {(currentLogIndex + 1).toLocaleString()} /{" "}
+                        {timeline.length.toLocaleString()}
                       </div>
                     </div>
                     <button
@@ -612,14 +702,15 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                           const isTabAcceptEvent =
                             timeline[currentLogIndex].event ===
                             "SUGGESTION_TAB_ACCEPT";
+                          const isGenerateEvent =
+                            timeline[currentLogIndex].event ===
+                            "SUGGESTION_GENERATE";
                           const userSawBuggyLine =
                             suggestionData.shownBug === true;
                           const userSawCorrectLine =
                             suggestionData.shownBug === false;
                           const unknownWhichShown =
                             suggestionData.shownBug === null;
-
-                          console.log("suggestionData", suggestionData);
 
                           return (
                             <>
@@ -629,7 +720,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                                     <span className="text-sm font-medium text-muted-foreground">
                                       Correct Line:
                                     </span>
-                                    {userSawCorrectLine && (
+                                    {!isGenerateEvent && userSawCorrectLine && (
                                       <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full flex items-center gap-1">
                                         <Eye className="size-3" />
                                         USER SAW THIS
@@ -650,15 +741,18 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                                   </div>
                                   <code
                                     className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                      (isShownEvent && userSawBuggyLine) ||
-                                      (isTabAcceptEvent && userSawBuggyLine)
-                                        ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
-                                        : userSawCorrectLine
-                                          ? "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 ring-2 ring-green-200 dark:ring-green-800"
-                                          : isTabAcceptEvent &&
-                                              unknownWhichShown
-                                            ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800"
-                                            : "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700"
+                                      isGenerateEvent
+                                        ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700"
+                                        : (isShownEvent && userSawBuggyLine) ||
+                                            (isTabAcceptEvent &&
+                                              userSawBuggyLine)
+                                          ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
+                                          : userSawCorrectLine
+                                            ? "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 ring-2 ring-green-200 dark:ring-green-800"
+                                            : isTabAcceptEvent &&
+                                                unknownWhichShown
+                                              ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800"
+                                              : "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700"
                                     }`}
                                   >
                                     {suggestionData.correctLine}
@@ -670,9 +764,11 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                                 <div>
                                   <div className="flex items-center space-x-2 mb-2">
                                     <span className="text-sm font-medium text-muted-foreground">
-                                      Incorrect Line (Bug):
+                                      {isGenerateEvent
+                                        ? "Incorrect Line:"
+                                        : "Incorrect Line (Bug):"}
                                     </span>
-                                    {userSawBuggyLine && (
+                                    {!isGenerateEvent && userSawBuggyLine && (
                                       <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-medium rounded-full flex items-center gap-1">
                                         <Eye className="size-3" />
                                         USER SAW THIS
@@ -687,12 +783,16 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
                                   </div>
                                   <code
                                     className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                      (isShownEvent && userSawCorrectLine) ||
-                                      (isTabAcceptEvent && userSawCorrectLine)
-                                        ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
-                                        : userSawBuggyLine
-                                          ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 ring-2 ring-red-200 dark:ring-red-800"
-                                          : "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700"
+                                      isGenerateEvent
+                                        ? "bg-orange-50 dark:bg-orange-950 border-orange-300 dark:border-orange-700"
+                                        : (isShownEvent &&
+                                              userSawCorrectLine) ||
+                                            (isTabAcceptEvent &&
+                                              userSawCorrectLine)
+                                          ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
+                                          : userSawBuggyLine
+                                            ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 ring-2 ring-red-200 dark:ring-red-800"
+                                            : "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700"
                                     }`}
                                   >
                                     {suggestionData.incorrectLine}
@@ -756,7 +856,7 @@ const TypingLogs: React.FC<TypingLogsProps> = ({ userId }) => {
               </Card>
             )}
           </>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );
