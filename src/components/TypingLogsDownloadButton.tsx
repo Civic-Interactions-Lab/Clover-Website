@@ -79,45 +79,64 @@ const TypingLogsDownloadButton = ({
       setLoading(true);
 
       try {
-        const { data, error } = await supabase
-          .from("typing_log")
-          .select(
-            `
-            id,
-            created_at,
-            raw_text,
-            line_suggestion_id,
-            user_id,
-            event,
-            line_suggestions:line_suggestion_id (
-              id,
-              correct_line,
-              incorrect_line,
-              shown_bug,
-              line_suggestions_group:group_id (
-                filename,
-                language
-              )
-            )
-          `,
-          )
-          .eq("user_id", userId)
-          .in("event", focusEvents)
-          .order("created_at", { ascending: true });
+        const allLogs: TypingLogData[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMoreData = true;
 
-        if (error) {
-          throw error;
+        // Fetch all records in batches
+        while (hasMoreData) {
+          const { data, error } = await supabase
+            .from("typing_log")
+            .select(
+              `
+              id,
+              created_at,
+              raw_text,
+              line_suggestion_id,
+              user_id,
+              event,
+              line_suggestions:line_suggestion_id (
+                id,
+                correct_line,
+                incorrect_line,
+                shown_bug,
+                line_suggestions_group:group_id (
+                  filename,
+                  language
+                )
+              )
+            `,
+            )
+            .eq("user_id", userId)
+            .in("event", focusEvents)
+            .order("created_at", { ascending: true })
+            .range(from, from + batchSize - 1);
+
+          if (error) {
+            throw error;
+          }
+
+          const logs = data as unknown as TypingLogData[];
+          allLogs.push(...logs);
+
+          // Check if we got a full batch, if not, we're done
+          hasMoreData = logs.length === batchSize;
+          from += batchSize;
+
+          // Add a small delay to prevent overwhelming the server
+          if (hasMoreData) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
         }
 
-        const logs = data as unknown as TypingLogData[];
-
         const formattedData =
-          logs?.map((log, index) => {
+          allLogs?.map((log, index) => {
             let timeDifference = 0;
             if (index > 0) {
               const currentTime = new Date(log.created_at).getTime();
               const previousTime = new Date(
-                logs[index - 1].created_at,
+                allLogs[index - 1].created_at,
               ).getTime();
               timeDifference = currentTime - previousTime;
             }
@@ -127,7 +146,7 @@ const TypingLogsDownloadButton = ({
               PID: user?.pid || "N/A",
               Username: user?.firstName || "N/A",
               Event: log.event,
-              Timestamp: new Date(log.created_at).toLocaleString(),
+              Timestamp: new Date(log.created_at).getTime(),
               "Time Difference (ms)": timeDifference,
               "Raw Text": log.raw_text.replace(/\n/g, "\\n"),
               "Correct Line": log.line_suggestions?.correct_line || "N/A",

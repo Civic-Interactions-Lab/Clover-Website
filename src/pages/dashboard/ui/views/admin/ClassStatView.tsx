@@ -6,26 +6,27 @@ import { useClassActivity } from "@/pages/dashboard/hooks/useClassActivity";
 import { UserMode, UserRole } from "@/types/user";
 import { ClassDetailsCard } from "../../components/ClassDetailsCard";
 import { useClassData } from "@/pages/classes/hooks/useClassData";
-import { Edit, Heading } from "lucide-react";
+import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Title } from "@radix-ui/react-dialog";
 
 const ClassStatView = ({}) => {
   const { instructorId, classId } = useParams();
 
   const { data } = useClassData(classId);
 
+  console.log("Class data", JSON.stringify(data, null, 2));
+
   const [showModel, setShowModel] = useState<boolean>(false);
 
   const { classActivity, progressData, loading } = useClassActivity(
     instructorId,
-    classId
+    classId,
   );
 
-  const formatDataForDownload = useMemo(() => {
-    const activityToExport = classActivity;
+  console.log("classActivity", JSON.stringify(classActivity, null, 2));
 
-    return activityToExport.map((activity, index) => ({
+  const formatDataForDownload = useMemo(() => {
+    return classActivity.map((activity, index) => ({
       "No.": index + 1,
       "User ID": activity.userId,
       Event: activity.event,
@@ -57,7 +58,7 @@ const ClassStatView = ({}) => {
         userActivity={classActivity}
         progressData={progressData}
         loading={loading}
-        userMode={UserMode.LINE_BY_LINE} // TODO as a switcher or something for this
+        userMode={UserMode.LINE_BY_LINE}
         role={UserRole.INSTRUCTOR}
         selectedClassTitle={"Testing"}
         classId={classId}
