@@ -20,6 +20,7 @@ type TypingLogData = {
     correct_line: string | null;
     incorrect_line: string | null;
     shown_bug: boolean | null;
+    bug_percentage: number | null; // Add this field
     line_suggestions_group?: {
       filename: string | null;
       language: string | null;
@@ -33,9 +34,6 @@ const TypingLogsDownloadButton = ({
 }: TypingLogsDownloadButtonProps) => {
   const [typingData, setTypingData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [userSettings, setUserSettings] = useState<{
-    bug_percentage: number;
-  } | null>(null);
 
   const focusEvents = [
     "TYPING",
@@ -45,32 +43,6 @@ const TypingLogsDownloadButton = ({
     "SUGGESTION_LINE_REJECT",
     "SUGGESTION_GENERATE",
   ];
-
-  useEffect(() => {
-    const fetchUserSettings = async () => {
-      if (!userId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from("user_settings")
-          .select("bug_percentage")
-          .eq("user_id", userId)
-          .single();
-
-        if (error) {
-          console.warn("Error fetching user settings:", error);
-          setUserSettings({ bug_percentage: 40 }); // Default fallback
-        } else {
-          setUserSettings(data);
-        }
-      } catch (err) {
-        console.error("Error fetching user settings:", err);
-        setUserSettings({ bug_percentage: 40 }); // Default fallback
-      }
-    };
-
-    fetchUserSettings();
-  }, [userId]);
 
   useEffect(() => {
     const fetchTypingData = async () => {
@@ -101,6 +73,7 @@ const TypingLogsDownloadButton = ({
                 correct_line,
                 incorrect_line,
                 shown_bug,
+                bug_percentage,
                 line_suggestions_group:group_id (
                   filename,
                   language
@@ -152,7 +125,7 @@ const TypingLogsDownloadButton = ({
               "Correct Line": log.line_suggestions?.correct_line || "N/A",
               "Incorrect Line": log.line_suggestions?.incorrect_line || "N/A",
               "Bug Shown": log.line_suggestions?.shown_bug ?? "N/A",
-              "Bug Percentage": userSettings?.bug_percentage ?? "N/A",
+              "Bug Percentage": log.line_suggestions?.bug_percentage ?? "N/A", // Changed this line
               Filename:
                 log.line_suggestions?.line_suggestions_group?.filename || "N/A",
               Language:
@@ -168,10 +141,8 @@ const TypingLogsDownloadButton = ({
       }
     };
 
-    if (userSettings !== null) {
-      fetchTypingData();
-    }
-  }, [userId, user, userSettings]);
+    fetchTypingData();
+  }, [userId, user]); // Removed userSettings dependency
 
   const filename = user?.pid
     ? `typing-logs-${user.firstName}-${user.pid}`

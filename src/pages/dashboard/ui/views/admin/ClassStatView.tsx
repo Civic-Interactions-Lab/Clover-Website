@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 const ClassStatView = ({}) => {
   const { instructorId, classId } = useParams();
 
-  const { data } = useClassData(classId);
+  const { data } = useClassData(classId, {
+    includeStudents: true,
+    includeAllStatuses: false,
+  });
 
   console.log("Class data", JSON.stringify(data, null, 2));
 
@@ -23,7 +26,7 @@ const ClassStatView = ({}) => {
     classId,
   );
 
-  console.log("classActivity", JSON.stringify(classActivity, null, 2));
+  console.log("progress data here", JSON.stringify(progressData, null, 2));
 
   const formatDataForDownload = useMemo(() => {
     return classActivity.map((activity, index) => ({
