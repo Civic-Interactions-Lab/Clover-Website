@@ -35,8 +35,6 @@ export const useClassActivity = (
         await getClassActivityByInstructorId(instructorId);
       if (error || !data) throw new Error(error);
 
-      console.log("Fetched class activity logs:", data);
-
       return data as ActivityLogResponse;
     },
     enabled: !!instructorId,
