@@ -12,18 +12,18 @@ import { Button } from "@/components/ui/button";
 const ClassStatView = ({}) => {
   const { instructorId, classId } = useParams();
 
-  const { data } = useClassData(classId);
-
-  console.log("Class data", JSON.stringify(data, null, 2));
+  const { data } = useClassData(classId, {
+    includeStudents: true,
+    includeAllStatuses: false,
+  });
 
   const [showModel, setShowModel] = useState<boolean>(false);
 
   const { classActivity, progressData, loading } = useClassActivity(
     instructorId,
     classId,
+    UserMode.LINE_BY_LINE,
   );
-
-  console.log("classActivity", JSON.stringify(classActivity, null, 2));
 
   const formatDataForDownload = useMemo(() => {
     return classActivity.map((activity, index) => ({
@@ -40,6 +40,13 @@ const ClassStatView = ({}) => {
   }, [classActivity, classId]);
   return (
     <div>
+      <div className="flex justify-end items-center py-4">
+        <DownloadFormattedFile
+          data={formatDataForDownload}
+          filename={`class-activity-all-${new Date().toISOString().split("T")[0]}`}
+        />
+      </div>
+
       <div className="flex justify-between items-center mb-6 border-b pb-3">
         <h1 className="text-4xl md:text-5xl font-extrabold text-text leading-tight">
           {data?.classTitle}
@@ -66,13 +73,6 @@ const ClassStatView = ({}) => {
         showRealtimeToggle={false}
         showLearningProgress={false}
       />
-
-      <div className="flex justify-end items-center pt-6">
-        <DownloadFormattedFile
-          data={formatDataForDownload}
-          filename={`class-activity-all-${new Date().toISOString().split("T")[0]}`}
-        />
-      </div>
 
       {showModel && data && (
         <ClassDetailsCard

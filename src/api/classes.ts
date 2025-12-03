@@ -10,7 +10,7 @@ import { ClassPaginationParams } from "@/types/data";
  * @returns {Promise<{ data?: { id: string }; error?: string }>} - The response from the server
  */
 export const createClass = async (
-  newClass: ClassInfo
+  newClass: ClassInfo,
 ): Promise<{ id?: string; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/`, {
@@ -44,7 +44,7 @@ export const createClass = async (
 
 export const updateClass = async (
   classId: string,
-  updates: Partial<ClassInfo>
+  updates: Partial<ClassInfo>,
 ): Promise<{ id?: string; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/${classId}`, {
@@ -77,7 +77,7 @@ export const updateClass = async (
 };
 
 export const deleteClass = async (
-  classId: string
+  classId: string,
 ): Promise<{ success?: boolean; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/${classId}`, {
@@ -116,7 +116,7 @@ export const deleteClass = async (
  */
 export const getClassesByInstructor = async (
   instructorId: string,
-  includeStudents: boolean = false
+  includeStudents: boolean = false,
 ): Promise<{ data?: ClassData[]; error?: string }> => {
   try {
     const url = new URL(`${CLASS_ENDPOINT}/instructor/${instructorId}`);
@@ -188,7 +188,7 @@ export async function getClassesbyStudent(studentId: string): Promise<{
  */
 export const registerUserClass = async (
   userId: string,
-  classId: string
+  classId: string,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/register`, {
@@ -219,7 +219,7 @@ export const registerUserClass = async (
 
 export const unregisterUserClass = async (
   userId: string,
-  classId: string
+  classId: string,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/unregister`, {
@@ -252,7 +252,7 @@ export const unregisterUserClass = async (
  * @returns {Promise<{ data?: UserActivityLogItem[]; error?: string }>} - The response from the server or an error message.
  */
 export async function getClassActivityByInstructorId(
-  instructorId: string
+  instructorId: string,
 ): Promise<{ data: ActivityLogResponse; error?: string }> {
   console.log("Fetching class activity for instructor:", instructorId);
 
@@ -279,6 +279,8 @@ export async function getClassActivityByInstructorId(
       return { data: [] };
     }
 
+    console.log("Log data", JSON.stringify(logs, null, 2));
+
     return { data: logs };
   } catch (err) {
     return {
@@ -298,7 +300,7 @@ export async function getClassActivityByInstructorId(
 export const updateStudentEnrollmentStatus = async (
   classId: string,
   studentId: string,
-  newStatus: EnrollmentStatus
+  newStatus: EnrollmentStatus,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const response = await fetch(`${CLASS_ENDPOINT}/enrollment-status`, {
@@ -342,7 +344,7 @@ interface PaginatedClassResponse {
 }
 
 export async function getAllClasses(
-  params: ClassPaginationParams = {}
+  params: ClassPaginationParams = {},
 ): Promise<{
   data?: PaginatedClassResponse;
   error?: string;
@@ -392,7 +394,7 @@ export async function getAllClasses(
 export async function updateClassStudentsSettings(
   classId: string,
   studentIds: string[],
-  settings: UserSettings
+  settings: UserSettings,
 ): Promise<{ data?: boolean; error?: string }> {
   try {
     const response = await fetch(
@@ -404,7 +406,7 @@ export async function updateClassStudentsSettings(
           studentIds,
           settings,
         }),
-      }
+      },
     );
 
     const data = await response.json();
@@ -429,7 +431,7 @@ export async function getClassById(
     includeStudents?: boolean;
     userId?: string;
     includeAllStatuses?: boolean;
-  }
+  },
 ): Promise<{
   data?: ClassData;
   error?: string;
@@ -440,7 +442,7 @@ export async function getClassById(
     if (options?.includeStudents) {
       searchParams.append(
         "includeStudents",
-        options.includeStudents.toString()
+        options.includeStudents.toString(),
       );
     }
 
@@ -451,7 +453,7 @@ export async function getClassById(
     if (options?.includeAllStatuses) {
       searchParams.append(
         "includeAllStatuses",
-        options.includeAllStatuses.toString()
+        options.includeAllStatuses.toString(),
       );
     }
 

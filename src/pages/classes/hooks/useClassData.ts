@@ -9,7 +9,7 @@ export function useClassData(
     userId?: string;
     includeAllStatuses?: boolean;
     enabled?: boolean;
-  }
+  },
 ) {
   return useQuery({
     queryKey: ["class", classId, options?.includeStudents, options?.userId],
