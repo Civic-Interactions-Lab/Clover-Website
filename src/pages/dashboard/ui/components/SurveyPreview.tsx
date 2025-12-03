@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
-import CustomSelect from "@/components/CustomSelect";
 
 export interface SurveyQuestion {
   id: string;
@@ -71,18 +70,53 @@ const SurveyPreview = ({
   const [answers, setAnswers] = useState<SurveyAnswers>(initialAnswers);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
   // Form is interactive only if userId is provided
   const interactive = !!userId && !readOnly;
 
   const handleAnswerChange = (
     questionId: string,
-    answer: string | string[] | Record<string, string>
+    answer: string | string[] | Record<string, string>,
   ) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: answer,
-    }));
+    console.log("handleAnswerChange called:", { questionId, answer });
+    setAnswers((prev) => {
+      const newAnswers = {
+        ...prev,
+        [questionId]: answer,
+      };
+      console.log("New answers state:", newAnswers);
+      return newAnswers;
+    });
+  };
+
+  const isQuestionAnswered = (question: SurveyQuestion): boolean => {
+    const answer = answers[question.id];
+
+    if (question.question_type === "nasa_tlx") {
+      const nasaTlxAnswer = answer as Record<string, string>;
+      const nasaTlxScales = question.question_options || [];
+
+      if (!nasaTlxAnswer || typeof nasaTlxAnswer !== "object") {
+        return false;
+      }
+
+      // Extract scale names from the question options (format: "scaleName|lowLabel|highLabel")
+      return nasaTlxScales.every((scaleData) => {
+        const scaleName = scaleData.split("|")[0] || "";
+        return (
+          scaleName &&
+          nasaTlxAnswer[scaleName] !== undefined &&
+          nasaTlxAnswer[scaleName] !== ""
+        );
+      });
+    }
+
+    return !!(
+      answer &&
+      (typeof answer !== "string" || answer.trim() !== "") &&
+      (!Array.isArray(answer) || answer.length > 0)
+    );
   };
 
   const validateRequiredFields = (): string[] => {
@@ -91,26 +125,14 @@ const SurveyPreview = ({
     survey.questions
       .filter((q) => q.question_type !== "section_title" && q.is_required)
       .forEach((question) => {
-        const answer = answers[question.id];
-
-        if (question.question_type === "nasa_tlx") {
-          const nasaTlxAnswer = answer as Record<string, string>;
-          const nasaTlxScales = question.question_options || [];
-
-          if (
-            !nasaTlxAnswer ||
-            nasaTlxScales.some((scale) => !nasaTlxAnswer[scale])
-          ) {
+        if (!isQuestionAnswered(question)) {
+          if (question.question_type === "nasa_tlx") {
             errors.push(
-              `"${question.question_text}" - all scales must be rated`
+              `"${question.question_text}" - all scales must be rated`,
             );
+          } else {
+            errors.push(`"${question.question_text}" is required`);
           }
-        } else if (
-          !answer ||
-          (typeof answer === "string" && answer.trim() === "") ||
-          (Array.isArray(answer) && answer.length === 0)
-        ) {
-          errors.push(`"${question.question_text}" is required`);
         }
       });
 
@@ -121,6 +143,8 @@ const SurveyPreview = ({
     e.preventDefault();
 
     if (!interactive || !userId) return;
+
+    setShowValidation(true);
 
     const errors = validateRequiredFields();
     if (errors.length > 0) {
@@ -174,7 +198,7 @@ const SurveyPreview = ({
   const renderNasaTlxScale = (
     questionId: string,
     scaleData: string,
-    interactive: boolean
+    interactive: boolean,
   ) => {
     // Parse scale data: "scaleName|lowLabel|highLabel"
     const parts = scaleData.split("|");
@@ -206,19 +230,26 @@ const SurveyPreview = ({
                 onClick={
                   interactive
                     ? () => {
+                        console.log("NASA TLX Click:", {
+                          questionId,
+                          scaleName,
+                          value: value.toString(),
+                          currentAnswers,
+                        });
                         const updatedAnswers = {
                           ...currentAnswers,
                           [scaleName]: value.toString(),
                         };
+                        console.log("Updated answers:", updatedAnswers);
                         handleAnswerChange(questionId, updatedAnswers);
                       }
                     : undefined
                 }
                 className={`w-6 h-6 border-2 flex items-center justify-center text-xs transition-colors ${
                   currentValue === value.toString()
-                    ? "border-primary bg-primary text-foreground"
+                    ? "border-primary bg-primary text-primary-foreground shadow-lg"
                     : interactive
-                      ? "border-border hover:border-ring cursor-pointer"
+                      ? "border-border hover:border-ring hover:bg-accent cursor-pointer"
                       : "border-border cursor-not-allowed"
                 } ${value % 5 === 0 ? "border-b-4" : ""}`}
               >
@@ -236,12 +267,27 @@ const SurveyPreview = ({
             Selected: {currentValue}
           </div>
         )}
+        {/* Show selected value in interactive mode for feedback */}
+        {interactive && currentValue && (
+          <div className="text-center text-sm font-medium text-primary">
+            Selected: {currentValue}
+          </div>
+        )}
       </div>
     );
   };
 
   const renderQuestion = (question: SurveyQuestion) => {
     const currentAnswer = answers[question.id];
+    const isRequired =
+      question.is_required && question.question_type !== "section_title";
+    const isUnanswered =
+      isRequired && showValidation && !isQuestionAnswered(question);
+
+    // Define classes for highlighting unanswered required questions
+    const errorClasses = isUnanswered
+      ? "border-red-500 bg-red-50 dark:bg-red-900/20 shadow-sm shadow-red-200 dark:shadow-red-900/50"
+      : "border-border hover:border-ring";
 
     switch (question.question_type) {
       case "section_title":
@@ -265,13 +311,18 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-3 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-3 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <div className="space-y-2">
               <Label className="text-base font-medium text-foreground flex items-center gap-1">
                 {question.question_text}
                 {question.is_required && (
                   <span className="text-destructive text-lg">*</span>
+                )}
+                {isUnanswered && (
+                  <span className="text-red-600 text-sm ml-2 font-normal">
+                    (Required)
+                  </span>
                 )}
               </Label>
               {interactive ? (
@@ -281,7 +332,9 @@ const SurveyPreview = ({
                     handleAnswerChange(question.id, e.target.value)
                   }
                   placeholder="Your answer"
-                  className="border-0 border-b-2 border-border rounded-none px-0 focus:border-ring bg-transparent min-h-[60px]"
+                  className={`border-0 border-b-2 rounded-none px-0 focus:border-ring bg-transparent min-h-[60px] ${
+                    isUnanswered ? "border-red-500" : "border-border"
+                  }`}
                 />
               ) : (
                 <div className="border-0 border-b-2 border-border rounded-none px-0 bg-transparent min-h-[60px] py-2">
@@ -315,12 +368,17 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-4 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-4 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <Label className="text-base font-medium text-foreground flex items-center gap-1">
               {question.question_text}
               {question.is_required && (
                 <span className="text-destructive text-lg">*</span>
+              )}
+              {isUnanswered && (
+                <span className="text-red-600 text-sm ml-2 font-normal">
+                  (Required)
+                </span>
               )}
             </Label>
 
@@ -378,12 +436,17 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-4 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-4 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <Label className="text-base font-medium text-foreground flex items-center gap-1">
               {question.question_text}
               {question.is_required && (
                 <span className="text-destructive text-lg">*</span>
+              )}
+              {isUnanswered && (
+                <span className="text-red-600 text-sm ml-2 font-normal">
+                  (Required)
+                </span>
               )}
             </Label>
             <RadioGroup
@@ -431,12 +494,17 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-4 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-4 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <Label className="text-base font-medium text-foreground flex items-center gap-1">
               {question.question_text}
               {question.is_required && (
                 <span className="text-destructive text-lg">*</span>
+              )}
+              {isUnanswered && (
+                <span className="text-red-600 text-sm ml-2 font-normal">
+                  (Required)
+                </span>
               )}
             </Label>
             <div className="text-sm text-muted-foreground mb-3">
@@ -465,8 +533,8 @@ const SurveyPreview = ({
                               handleAnswerChange(
                                 question.id,
                                 currentSelections.filter(
-                                  (item) => item !== option
-                                )
+                                  (item) => item !== option,
+                                ),
                               );
                             }
                           }
@@ -502,12 +570,17 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-4 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-4 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <Label className="text-base font-medium text-foreground flex items-center gap-1">
               {question.question_text}
               {question.is_required && (
                 <span className="text-destructive text-lg">*</span>
+              )}
+              {isUnanswered && (
+                <span className="text-red-600 text-sm ml-2 font-normal">
+                  (Required)
+                </span>
               )}
             </Label>
 
@@ -565,12 +638,17 @@ const SurveyPreview = ({
         return (
           <div
             key={question.id}
-            className="space-y-6 p-6 bg-card rounded-lg border border-border hover:border-ring transition-colors"
+            className={`space-y-6 p-6 bg-card rounded-lg border transition-colors ${errorClasses}`}
           >
             <Label className="text-base font-medium text-foreground flex items-center gap-1">
               {question.question_text}
               {question.is_required && (
                 <span className="text-destructive text-lg">*</span>
+              )}
+              {isUnanswered && (
+                <span className="text-red-600 text-sm ml-2 font-normal">
+                  (Required)
+                </span>
               )}
             </Label>
 
