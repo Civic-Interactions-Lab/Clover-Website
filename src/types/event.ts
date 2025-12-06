@@ -4,6 +4,7 @@ export const ACCEPT_EVENTS = [
   "SUGGESTION_ACCEPT",
   "SUGGESTION_LINE_ACCEPT",
   "SUGGESTION_SELECTION_ACCEPT",
+  "SUGGESTION_TAB_ACCEPT",
 ];
 
 export const REJECT_EVENTS = ["SUGGESTION_REJECT", "SUGGESTION_LINE_REJECT"];
@@ -17,7 +18,7 @@ export const getEventsForMode = (mode: UserMode) => {
       };
     case UserMode.LINE_BY_LINE:
       return {
-        accept: ["SUGGESTION_LINE_ACCEPT"],
+        accept: ["SUGGESTION_LINE_ACCEPT", "SUGGESTION_TAB_ACCEPT"],
         reject: ["SUGGESTION_LINE_REJECT"],
       };
     case UserMode.CODE_SELECTION:

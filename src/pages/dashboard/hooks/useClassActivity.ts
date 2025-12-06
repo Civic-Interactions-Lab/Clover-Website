@@ -1,5 +1,5 @@
-import { UserMode } from "../../../types/user";
-import { getClassActivityByInstructorId } from "../../../api/classes";
+import { UserMode } from "@/types/user.ts";
+import { getClassActivityByInstructorId } from "@/api/classes.ts";
 import { useQuery } from "@tanstack/react-query";
 import QUERY_INTERVALS from "@/constants/queryIntervals";
 import { useMemo } from "react";
@@ -13,15 +13,16 @@ import { getEventsForMode } from "@/types/event";
 /**
  * Custom hook to fetch and manage class activity logs.
  * It fetches all activity logs for the provided classes and filters them based on the selected class ID.
- * @param classes - Array of UserClass objects representing the classes to fetch activity for.
+ * @param instructorId
  * @param selectedClassId - The ID of the selected class to filter activity logs by.
+ * @param mode
  * @returns An object containing the following properties:
  */
 
 export const useClassActivity = (
   instructorId?: string | null,
   selectedClassId: string | null = null,
-  mode?: UserMode | null
+  mode?: UserMode | null,
 ) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["classActivity", instructorId],
@@ -33,8 +34,6 @@ export const useClassActivity = (
       const { data, error } =
         await getClassActivityByInstructorId(instructorId);
       if (error || !data) throw new Error(error);
-
-      console.log("Fetched class activity logs:", data);
 
       return data as ActivityLogResponse;
     },
@@ -61,7 +60,7 @@ export const useClassActivity = (
       filtered = filtered.filter((activity) => !activity.classId);
     } else if (selectedClassId && selectedClassId !== "all") {
       filtered = filtered.filter(
-        (activity) => activity.classId === selectedClassId
+        (activity) => activity.classId === selectedClassId,
       );
     }
 
