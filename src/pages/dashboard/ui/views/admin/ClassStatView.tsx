@@ -1,13 +1,13 @@
-import DownloadFormattedFile from "@/components/DownloadFormattedFile";
 import ActivityStatsSection from "../../components/ActivityStatsSection";
 import { useParams } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useClassActivity } from "@/pages/dashboard/hooks/useClassActivity";
 import { UserMode, UserRole } from "@/types/user";
 import { ClassDetailsCard } from "../../components/ClassDetailsCard";
 import { useClassData } from "@/pages/classes/hooks/useClassData";
 import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ClassTypingLogsDownloadButton from "@/pages/classes/ui/components/ClassTypingLogsDownloadButton.tsx";
 
 const ClassStatView = ({}) => {
   const { instructorId, classId } = useParams();
@@ -25,25 +25,12 @@ const ClassStatView = ({}) => {
     UserMode.LINE_BY_LINE,
   );
 
-  const formatDataForDownload = useMemo(() => {
-    return classActivity.map((activity, index) => ({
-      "No.": index + 1,
-      "User ID": activity.userId,
-      Event: activity.event,
-      "Class Title": activity.classTitle || "N/A",
-      "Class Code": activity.classCode || "N/A",
-      "Duration (seconds)": activity.duration,
-      "Has Bug": activity.hasBug ? "Yes" : "No",
-      Type: activity.type || "N/A",
-      "Created At": new Date(activity.createdAt).toLocaleString(),
-    }));
-  }, [classActivity, classId]);
   return (
     <div>
       <div className="flex justify-end items-center py-4">
-        <DownloadFormattedFile
-          data={formatDataForDownload}
-          filename={`class-activity-all-${new Date().toISOString().split("T")[0]}`}
+        <ClassTypingLogsDownloadButton
+          classId={classId!}
+          className={data?.classTitle}
         />
       </div>
 
