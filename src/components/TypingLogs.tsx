@@ -486,7 +486,7 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center gap-2"
         >
           <RefreshCw className="size-4" />
-          Reload All Records
+          <span className="hidden md:inline">Reload All Records</span>
         </button>
       </CardHeader>
 

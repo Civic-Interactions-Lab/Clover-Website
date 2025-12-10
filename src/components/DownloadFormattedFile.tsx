@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { Button } from "./ui/button";
@@ -9,6 +9,7 @@ interface DownloadFormattedFileProps {
   data: any[];
   filename?: string;
   disabled?: boolean;
+  loading?: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ const DownloadFormattedFile = ({
   data,
   filename = "data",
   disabled = false,
+  loading = false,
 }: DownloadFormattedFileProps) => {
   const [format, setFormat] = useState<"csv" | "json">("csv");
 
@@ -62,10 +64,14 @@ const DownloadFormattedFile = ({
                    border-0"
         disabled={disabled}
       >
-        <div className="flex items-center gap-2">
-          <Download className="w-4 h-4" />
-          <span>Download {format.toUpperCase()}</span>
-        </div>
+        {loading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <div className="flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            <span>Download {format.toUpperCase()}</span>
+          </div>
+        )}
       </Button>
     </div>
   );

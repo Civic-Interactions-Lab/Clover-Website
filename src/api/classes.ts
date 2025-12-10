@@ -279,8 +279,6 @@ export async function getClassActivityByInstructorId(
       return { data: [] };
     }
 
-    console.log("Log data", JSON.stringify(logs, null, 2));
-
     return { data: logs };
   } catch (err) {
     return {

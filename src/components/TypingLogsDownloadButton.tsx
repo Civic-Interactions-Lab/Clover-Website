@@ -20,12 +20,20 @@ type TypingLogData = {
     correct_line: string | null;
     incorrect_line: string | null;
     shown_bug: boolean | null;
-    bug_percentage: number | null; // Add this field
+    bug_percentage: number | null;
     line_suggestions_group?: {
       filename: string | null;
       language: string | null;
     } | null;
   } | null;
+};
+
+type TerminalLogData = {
+  id: string;
+  start_time: string;
+  end_time: string;
+  output: string;
+  user_id: string;
 };
 
 const TypingLogsDownloadButton = ({
@@ -44,6 +52,25 @@ const TypingLogsDownloadButton = ({
     "SUGGESTION_GENERATE",
   ];
 
+  // Function to find matching terminal output for a given timestamp
+  const findMatchingTerminalOutput = (
+    eventTimestamp: string,
+    terminalLogs: TerminalLogData[],
+  ): string | null => {
+    const eventTime = new Date(eventTimestamp).getTime();
+
+    for (const terminalLog of terminalLogs) {
+      const startTime = new Date(terminalLog.start_time).getTime();
+      const endTime = new Date(terminalLog.end_time).getTime();
+
+      if (eventTime >= startTime && eventTime <= endTime) {
+        return terminalLog.output;
+      }
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     const fetchTypingData = async () => {
       if (!userId) return;
@@ -51,12 +78,26 @@ const TypingLogsDownloadButton = ({
       setLoading(true);
 
       try {
+        // First, fetch terminal logs for the user
+        const { data: terminalLogsData, error: terminalLogsError } =
+          await supabase
+            .from("terminal_logs")
+            .select("id, start_time, end_time, output, user_id")
+            .eq("user_id", userId)
+            .order("start_time", { ascending: true });
+
+        if (terminalLogsError) {
+          throw terminalLogsError;
+        }
+
+        const terminalLogs = terminalLogsData as TerminalLogData[];
+
+        // Then fetch typing logs
         const allLogs: TypingLogData[] = [];
         let from = 0;
         const batchSize = 1000;
         let hasMoreData = true;
 
-        // Fetch all records in batches
         while (hasMoreData) {
           const { data, error } = await supabase
             .from("typing_log")
@@ -93,11 +134,9 @@ const TypingLogsDownloadButton = ({
           const logs = data as unknown as TypingLogData[];
           allLogs.push(...logs);
 
-          // Check if we got a full batch, if not, we're done
           hasMoreData = logs.length === batchSize;
           from += batchSize;
 
-          // Add a small delay to prevent overwhelming the server
           if (hasMoreData) {
             await new Promise((resolve) => setTimeout(resolve, 50));
           }
@@ -114,6 +153,12 @@ const TypingLogsDownloadButton = ({
               timeDifference = currentTime - previousTime;
             }
 
+            // Find matching terminal output
+            const terminalOutput = findMatchingTerminalOutput(
+              log.created_at,
+              terminalLogs,
+            );
+
             return {
               "No.": index + 1,
               PID: user?.pid || "N/A",
@@ -125,11 +170,14 @@ const TypingLogsDownloadButton = ({
               "Correct Line": log.line_suggestions?.correct_line || "N/A",
               "Incorrect Line": log.line_suggestions?.incorrect_line || "N/A",
               "Bug Shown": log.line_suggestions?.shown_bug ?? "N/A",
-              "Bug Percentage": log.line_suggestions?.bug_percentage ?? "N/A", // Changed this line
+              "Bug Percentage": log.line_suggestions?.bug_percentage ?? "N/A",
               Filename:
                 log.line_suggestions?.line_suggestions_group?.filename || "N/A",
               Language:
                 log.line_suggestions?.line_suggestions_group?.language || "N/A",
+              "Terminal Output": terminalOutput
+                ? terminalOutput.replace(/\n/g, "\\n")
+                : "N/A",
             };
           }) || [];
 
@@ -142,7 +190,7 @@ const TypingLogsDownloadButton = ({
     };
 
     fetchTypingData();
-  }, [userId, user]); // Removed userSettings dependency
+  }, [userId, user]);
 
   const filename = user?.pid
     ? `typing-logs-${user.firstName}-${user.pid}`
@@ -152,7 +200,8 @@ const TypingLogsDownloadButton = ({
     <DownloadFormattedFile
       data={typingData}
       filename={filename}
-      disabled={loading || typingData.length === 0}
+      disabled={typingData.length === 0}
+      loading={loading}
     />
   );
 };
