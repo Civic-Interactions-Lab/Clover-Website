@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle } from "lucide-react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { toast } from "sonner";
 
 export interface SurveyQuestion {

@@ -8,14 +8,14 @@ import { UserMode } from "@/types/user";
 import { useQuery } from "@tanstack/react-query";
 import QUERY_INTERVALS from "@/constants/queryIntervals";
 import { useEffect, useMemo } from "react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { RealtimePostgresChangesFilter } from "@supabase/supabase-js";
 
 export const useUserActivity = (
   userId?: string | null,
   mode?: UserMode | null,
   selectedClassId: string | null = null,
-  isRealtimeEnabled?: boolean
+  isRealtimeEnabled?: boolean,
 ) => {
   useEffect(() => {
     if (!isRealtimeEnabled) return;
@@ -84,7 +84,7 @@ export const useUserActivity = (
       filtered = filtered.filter((activity) => !activity.classId);
     } else if (selectedClassId && selectedClassId !== "all") {
       filtered = filtered.filter(
-        (activity) => activity.classId === selectedClassId
+        (activity) => activity.classId === selectedClassId,
       );
     }
 

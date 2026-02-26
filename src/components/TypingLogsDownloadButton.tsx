@@ -1,5 +1,5 @@
 import DownloadFormattedFile from "@/components/DownloadFormattedFile";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { User } from "@/types/user";
 import { useEffect, useState } from "react";
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import SurveyPreview, {
@@ -46,7 +46,7 @@ const CompletedSurveyView = () => {
               is_required,
               created_at
             )
-          `
+          `,
           )
           .eq("id", surveyId)
           .single();

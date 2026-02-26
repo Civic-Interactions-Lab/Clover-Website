@@ -11,7 +11,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 // Mock Supabase client
-jest.mock("../../supabaseClient", () => {
+jest.mock("../../lib/supabaseClient.ts", () => {
   return {
     supabase: {
       auth: {
@@ -27,7 +27,7 @@ jest.mock("react-router-dom", () => ({
   useLocation: jest.fn(),
 }));
 
-import { supabase } from "../../supabaseClient";
+import { supabase } from "../../lib/supabaseClient.ts";
 const mockSupabaseAuth = supabase.auth as jest.Mocked<typeof supabase.auth>;
 const mockUseNavigate = useNavigate as jest.Mock;
 const mockUseLocation = useLocation as jest.Mock;
@@ -79,7 +79,7 @@ describe("useAuth", () => {
             subscription: mockSubscription,
           },
         };
-      }
+      },
     );
   });
 
@@ -116,7 +116,7 @@ describe("useAuth", () => {
   it("should handle auth state changes", async () => {
     let capturedCallback: (
       event: AuthChangeEvent,
-      session: Session | null
+      session: Session | null,
     ) => void;
 
     mockSupabaseAuth.onAuthStateChange.mockImplementation((cb) => {
@@ -163,7 +163,7 @@ describe("useAuth", () => {
   it("should handle null session from auth state change", async () => {
     let capturedCallback: (
       event: AuthChangeEvent,
-      session: Session | null
+      session: Session | null,
     ) => void;
 
     mockSupabaseAuth.onAuthStateChange.mockImplementation((cb) => {
@@ -189,7 +189,7 @@ describe("useAuth", () => {
 
   it("should handle unexpected getSession error gracefully", async () => {
     mockSupabaseAuth.getSession.mockRejectedValue(
-      new Error("Failed to fetch session")
+      new Error("Failed to fetch session"),
     );
 
     mockSupabaseAuth.onAuthStateChange.mockImplementation(() => ({

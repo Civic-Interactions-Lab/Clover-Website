@@ -1,6 +1,6 @@
 /** Gets the endpoint from the .env if it is available otherwise it uses localhost */
 export const BASE_ENDPOINT =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api/v1";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8080/api/v2";
 
 /* Endpoint for creating new AI suggestions */
 export const AI_SUGGESTION_ENDPOINT: string = `${BASE_ENDPOINT}/suggestion`;

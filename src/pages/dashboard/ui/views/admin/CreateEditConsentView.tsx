@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -170,7 +170,7 @@ const SortableBlockItem = ({
                         variant="outline"
                         onClick={() => {
                           const newItems = block.content.items.filter(
-                            (_: any, i: number) => i !== index
+                            (_: any, i: number) => i !== index,
                           );
                           updateBlock(block.id, {
                             content: {
@@ -305,7 +305,7 @@ const CreateEditConsentView = () => {
   const [loading, setLoading] = useState(false);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, any>>(
-    new Map()
+    new Map(),
   );
 
   // Drag and drop sensors
@@ -317,7 +317,7 @@ const CreateEditConsentView = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const debouncedUpdates = useDebounce(pendingUpdates, 500) as Map<string, any>;
@@ -388,7 +388,7 @@ const CreateEditConsentView = () => {
         loadConsentForm();
       }
     },
-    [blocks]
+    [blocks],
   );
 
   useEffect(() => {
@@ -488,7 +488,7 @@ const CreateEditConsentView = () => {
       setConsentForm((prev) =>
         prev
           ? { ...prev, [field]: consentForm[field as keyof ConsentForm] }
-          : null
+          : null,
       );
     }
   };
@@ -497,8 +497,8 @@ const CreateEditConsentView = () => {
     (blockId: string, updates: Partial<ConsentFormBlock>) => {
       setBlocks((prev) =>
         prev.map((block) =>
-          block.id === blockId ? { ...block, ...updates } : block
-        )
+          block.id === blockId ? { ...block, ...updates } : block,
+        ),
       );
 
       setPendingUpdates((prev) => {
@@ -508,7 +508,7 @@ const CreateEditConsentView = () => {
         return newMap;
       });
     },
-    []
+    [],
   );
 
   const addBlock = async (type: string) => {
@@ -578,7 +578,7 @@ const CreateEditConsentView = () => {
           ) {
             setConsentForm(dbFormToFrontend(payload.new));
           }
-        }
+        },
       )
       .subscribe();
 
@@ -603,7 +603,7 @@ const CreateEditConsentView = () => {
                   // Check if block already exists to prevent duplicates
                   if (prev.find((b) => b.id === newBlock.id)) return prev;
                   return [...prev, newBlock].sort(
-                    (a, b) => a.sortOrder - b.sortOrder
+                    (a, b) => a.sortOrder - b.sortOrder,
                   );
                 });
               }
@@ -616,8 +616,8 @@ const CreateEditConsentView = () => {
               if (updatedBlock.formId === consentForm?.id) {
                 setBlocks((prev) =>
                   prev.map((block) =>
-                    block.id === updatedBlock.id ? updatedBlock : block
-                  )
+                    block.id === updatedBlock.id ? updatedBlock : block,
+                  ),
                 );
               }
             }
@@ -626,11 +626,11 @@ const CreateEditConsentView = () => {
           if (payload.eventType === "DELETE" && payload.old) {
             if (typeof payload.old === "object" && "id" in payload.old) {
               setBlocks((prev) =>
-                prev.filter((block) => block.id !== (payload.old as any).id)
+                prev.filter((block) => block.id !== (payload.old as any).id),
               );
             }
           }
-        }
+        },
       )
       .subscribe();
 
@@ -722,7 +722,7 @@ const CreateEditConsentView = () => {
                         onChange={(e) =>
                           updateFormField(
                             "principalInvestigator",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         placeholder="Principal Investigator name"

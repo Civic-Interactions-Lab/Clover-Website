@@ -38,6 +38,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/vite": "^4.0.14",
     "@tanstack/react-query": "^5.81.5",
+    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -4,7 +4,7 @@ import SurveyPreview, {
   Participant,
   Survey,
 } from "./dashboard/ui/components/SurveyPreview";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 
 const SurveyView = () => {

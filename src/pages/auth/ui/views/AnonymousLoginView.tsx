@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ const AnonymousLoginView = () => {
   };
 
   const checkUsernameExists = async (
-    usernameToCheck: string
+    usernameToCheck: string,
   ): Promise<boolean> => {
     try {
       const { data, error } = await supabase
@@ -76,7 +76,7 @@ const AnonymousLoginView = () => {
 
       if (error) {
         setError(
-          "No account found with this username. Try creating a new one."
+          "No account found with this username. Try creating a new one.",
         );
         return;
       }
@@ -107,7 +107,7 @@ const AnonymousLoginView = () => {
 
       if (usernameExists) {
         setError(
-          "This username is already taken. Please choose a different one or generate a new one."
+          "This username is already taken. Please choose a different one or generate a new one.",
         );
         setLoading(false);
         return;
@@ -120,7 +120,7 @@ const AnonymousLoginView = () => {
         "",
         email,
         ANONYMOUS_PASSWORD,
-        isConsent
+        isConsent,
       );
 
       if (registerResult.error) {

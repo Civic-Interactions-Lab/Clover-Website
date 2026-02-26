@@ -1,6 +1,6 @@
 import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabaseClient.ts";
 import { BASE_ENDPOINT } from "../api/endpoints";
 import { useUserClasses } from "../hooks/useUserClasses";
 import ClassesDropdownMenu from "./dashboard/ui/components/ClassesDropdownMenu";
@@ -243,7 +243,7 @@ export const QuizPage = () => {
   const navigate = useNavigate();
 
   const { allClasses, handleClassSelect, selectedClassId } = useUserClasses(
-    user?.id || ""
+    user?.id || "",
   );
 
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
@@ -260,7 +260,7 @@ export const QuizPage = () => {
     quiz.length > 0 &&
     quiz.every(
       (question) =>
-        answers[question.id] !== null && answers[question.id] !== undefined
+        answers[question.id] !== null && answers[question.id] !== undefined,
     );
 
   const resetQuizState = () => {
@@ -302,10 +302,10 @@ export const QuizPage = () => {
           data.message?.includes("no sections that need review")
         ) {
           const selectedClass = allClasses.find(
-            (cls) => cls.id === selectedClassId
+            (cls) => cls.id === selectedClassId,
           );
           toast.success(
-            `You're doing great! No sections need review${selectedClass ? ` in ${selectedClass.classTitle}` : ""}.`
+            `You're doing great! No sections need review${selectedClass ? ` in ${selectedClass.classTitle}` : ""}.`,
           );
         } else {
           throw new Error(data?.message || "Failed to generate quiz");
@@ -327,7 +327,7 @@ export const QuizPage = () => {
     } catch (error) {
       console.error("Error generating quiz:", error);
       toast.error(
-        error instanceof Error ? error.message : "An unknown error occurred"
+        error instanceof Error ? error.message : "An unknown error occurred",
       );
     } finally {
       setIsGenerating(false);
@@ -343,7 +343,7 @@ export const QuizPage = () => {
     setSubmitting(true);
     const calculatedScore = quiz.reduce(
       (total, q) => (answers[q.id] === q.answerIndex ? total + 1 : total),
-      0
+      0,
     );
     const passThreshold = 0.8;
     const hasPassed = calculatedScore / quiz.length >= passThreshold;
@@ -359,8 +359,8 @@ export const QuizPage = () => {
           supabase
             .from("user_section_questions")
             .update({ user_answer_index: answers[q.id] ?? null })
-            .eq("id", q.id)
-        )
+            .eq("id", q.id),
+        ),
       );
 
       // 2. Upsert the quiz result
@@ -373,7 +373,7 @@ export const QuizPage = () => {
           user_class_id:
             selectedClassId === "non-class" ? null : selectedClassId,
         },
-        { onConflict: "quiz_id" }
+        { onConflict: "quiz_id" },
       );
 
       if (upsertError) throw upsertError;
@@ -418,13 +418,13 @@ export const QuizPage = () => {
           acc[q.id] = q.user_answer_index;
           return acc;
         },
-        {} as Record<string, number | null>
+        {} as Record<string, number | null>,
       );
 
       const calculatedScore = loadedQuiz.reduce(
         (total, q) =>
           loadedAnswers[q.id] === q.answerIndex ? total + 1 : total,
-        0
+        0,
       );
 
       setQuiz(loadedQuiz);
@@ -443,7 +443,7 @@ export const QuizPage = () => {
   const updateUserProgress = async (
     userId: string,
     sectionId: string | null,
-    classId: string | null
+    classId: string | null,
   ) => {
     try {
       // Mark the section as complete
