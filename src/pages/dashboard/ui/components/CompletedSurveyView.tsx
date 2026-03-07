@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient.ts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import SurveyPreview, {
-  Participant,
-  Survey,
-  SurveyAnswers,
-} from "./SurveyPreview";
+import SurveyPreview, { Participant, Survey } from "./SurveyPreview";
 
 const CompletedSurveyView = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -15,7 +11,7 @@ const CompletedSurveyView = () => {
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [user, setUser] = useState<Participant | null>(null);
-  const [answers, setAnswers] = useState<SurveyAnswers>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,29 +21,10 @@ const CompletedSurveyView = () => {
       try {
         setLoading(true);
 
-        // 1. Load survey with questions
+        // 1. Load survey — questions are embedded JSONB
         const { data: surveyData, error: surveyError } = await supabase
           .from("surveys")
-          .select(
-            `
-            id,
-            title,
-            description,
-            context,
-            type,
-            created_at,
-            questions:survey_questions(
-              id,
-              survey_id,
-              question_type,
-              question_number,
-              question_text,
-              question_options,
-              is_required,
-              created_at
-            )
-          `,
-          )
+          .select("id, title, description, is_active, created_at, questions")
           .eq("id", surveyId)
           .single();
 
@@ -74,7 +51,15 @@ const CompletedSurveyView = () => {
 
         setSurvey(surveyData as Survey);
         setUser(userData as Participant);
-        setAnswers(responseData?.answers || {});
+
+        // Convert [{ questionId, value }] array to Record<string, string>
+        const answersArray: { questionId: string; value: string }[] =
+          responseData?.answers ?? [];
+        const answersMap: Record<string, string> = {};
+        answersArray.forEach(({ questionId, value }) => {
+          answersMap[questionId] = value;
+        });
+        setAnswers(answersMap);
       } catch (err) {
         console.error("Error loading completed survey:", err);
       } finally {

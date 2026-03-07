@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabaseClient.ts";
 import { useState, useEffect, useMemo } from "react";
-import { SurveyAnswers } from "../../components/SurveyPreview";
 import SurveyResult from "../../components/SurveyResult";
 import {
   Table,
@@ -41,10 +40,9 @@ const PAGE_SIZE = 100;
 type SurveyResponse = {
   id: string;
   created_at: string;
-  answers: SurveyAnswers;
+  answers: { questionId: string; value: string }[];
   survey: {
     title: string | null;
-    type: string | null;
     description: string | null;
     id?: string;
   } | null;
@@ -59,7 +57,7 @@ type Survey = {
   id: string;
   title: string | null;
   description?: string | null;
-  type?: string | null;
+  is_active?: boolean;
   created_at?: string;
   questions?: any[];
 };
@@ -68,15 +66,14 @@ interface SurveyResultData {
   id: string;
   survey_id: string;
   user_id: string;
-  answers: Record<string, any>;
-  created_at: string;
+  submitted_at: string;
+  answers: { questionId: string; value: string }[];
 }
 
 interface ResponseRow {
   id: string;
   survey_id: string | undefined;
   survey_title: string;
-  survey_type: string;
   survey_description: string;
   user_name: string;
   pid: string;
@@ -85,11 +82,10 @@ interface ResponseRow {
   raw: SurveyResponse;
 }
 
-type FilterCol = "survey_title" | "survey_type" | "user_name" | "pid";
+type FilterCol = "survey_title" | "user_name" | "pid";
 
 const FILTER_OPTIONS: { value: FilterCol; label: string }[] = [
   { value: "survey_title", label: "Survey Title" },
-  { value: "survey_type", label: "Type" },
   { value: "user_name", label: "User" },
   { value: "pid", label: "PID" },
 ];
@@ -116,7 +112,7 @@ const AdminSurveyDataView = () => {
     const loadSurveys = async () => {
       const { data, error } = await supabase
         .from("surveys")
-        .select("id, title, description, type, created_at");
+        .select("id, title, description, is_active, created_at");
       if (!error) setSurveys(data ?? []);
     };
     loadSurveys();
@@ -126,7 +122,7 @@ const AdminSurveyDataView = () => {
     const loadResponses = async () => {
       let query = supabase.from("survey_responses").select(`
         id, created_at, answers,
-        survey:survey_id ( id, title, type, description ),
+        survey:survey_id ( id, title, description ),
         user:user_id ( id, first_name, pid )
       `);
       if (selectedSurveyId !== "all")
@@ -148,26 +144,23 @@ const AdminSurveyDataView = () => {
   const loadSurveyForResults = async (surveyId: string) => {
     setLoadingResults(true);
     try {
+      // questions are embedded in the surveys row
       const { data: surveyData, error: surveyError } = await supabase
         .from("surveys")
         .select("*")
         .eq("id", surveyId)
         .single();
       if (surveyError) throw surveyError;
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("survey_questions")
-        .select("*")
-        .eq("survey_id", surveyId)
-        .order("question_number");
-      if (questionsError) throw questionsError;
+
       const { data: responsesData, error: responsesError } = await supabase
         .from("survey_responses")
         .select("*")
         .eq("survey_id", surveyId)
         .order("created_at", { ascending: false });
       if (responsesError) throw responsesError;
-      setSelectedSurvey({ ...surveyData, questions: questionsData || [] });
-      setResultResponses(responsesData || []);
+
+      setSelectedSurvey(surveyData);
+      setResultResponses(responsesData ?? []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -196,7 +189,6 @@ const AdminSurveyDataView = () => {
         id: r.id,
         survey_id: r.survey?.id,
         survey_title: r.survey?.title ?? "",
-        survey_type: r.survey?.type ?? "",
         survey_description: r.survey?.description ?? "",
         user_name: r.user?.first_name ?? "",
         pid: r.user?.pid ?? "",
@@ -215,16 +207,6 @@ const AdminSurveyDataView = () => {
         filterFn: "includesString",
         cell: ({ getValue }) => (
           <span className="font-medium">{String(getValue())}</span>
-        ),
-      },
-      {
-        accessorKey: "survey_type",
-        header: "Type",
-        filterFn: "includesString",
-        cell: ({ getValue }) => (
-          <span className="text-sm text-muted-foreground">
-            {String(getValue())}
-          </span>
         ),
       },
       {
