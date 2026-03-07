@@ -1,5 +1,5 @@
 import { checkAndRegisterUser } from "../api/auth";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabaseClient.ts";
 
 export async function handleAuthRedirect({
   onComplete,
@@ -60,7 +60,7 @@ export async function handleAuthRedirect({
     firstName,
     lastName,
     email,
-    userId
+    userId,
   );
   if (error) {
     const msg = `Error checking/registering user: ${error}`;

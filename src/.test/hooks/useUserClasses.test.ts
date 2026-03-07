@@ -18,7 +18,7 @@ jest.mock("../../hooks/useAuth", () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock("../../supabaseClient", () => ({
+jest.mock("../../lib/supabaseClient.ts", () => ({
   supabase: {
     from: jest.fn(),
   },
@@ -28,7 +28,8 @@ const mockUseAuth = require("../../hooks/useAuth").useAuth as jest.Mock;
 const mockGetUserClasses = getUserClasses as jest.MockedFunction<
   typeof getUserClasses
 >;
-const mockFrom = require("../../supabaseClient").supabase.from as jest.Mock;
+const mockFrom = require("../../lib/supabaseClient.ts").supabase
+  .from as jest.Mock;
 
 const mockClassInfo: UserClassInfo = {
   user_class: {
@@ -97,7 +98,7 @@ describe("useUserClasses", () => {
     expect(result.current.selectedClassId).toBe("class-1");
     expect(result.current.selectedClassType).toBe("class");
     expect(result.current.selectedClass?.user_class.class_title).toBe(
-      "Physics"
+      "Physics",
     );
   });
 
@@ -135,7 +136,7 @@ describe("useUserClassStatus", () => {
     });
 
     const { result } = renderHook(() =>
-      useUserClassStatus("student-1", "class-1")
+      useUserClassStatus("student-1", "class-1"),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -164,7 +165,7 @@ describe("useUserClassStatus", () => {
     });
 
     const { result } = renderHook(() =>
-      useUserClassStatus("student-1", "class-1")
+      useUserClassStatus("student-1", "class-1"),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -187,7 +188,7 @@ describe("useUserClassStatus", () => {
     });
 
     const { result } = renderHook(() =>
-      useUserClassStatus("student-1", "class-1")
+      useUserClassStatus("student-1", "class-1"),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -220,7 +221,7 @@ describe("useUserClassStatus", () => {
     expect(result.current.selectedClassId).toBe("non-class");
     expect(result.current.selectedClassType).toBe("non-class");
     expect(result.current.selectedClass?.user_class.class_title).toBe(
-      "Non-class Activities"
+      "Non-class Activities",
     );
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { useLocation, useNavigate } from "react-router-dom";
 
 /**
@@ -32,7 +32,7 @@ export const useAuth = () => {
       (_event, session) => {
         setUser(session?.user || null);
         setLoading(false);
-      }
+      },
     );
 
     return () => listener?.subscription.unsubscribe();

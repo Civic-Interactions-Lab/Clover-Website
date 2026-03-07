@@ -1,5 +1,5 @@
 import DownloadFormattedFile from "@/components/DownloadFormattedFile";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { User } from "@/types/user";
 import { useEffect, useState } from "react";
 
@@ -68,7 +68,7 @@ const UserDataDownloadButton = ({ user }: UserDataDownloadButtonProps) => {
               filename
             )
           )
-        `
+        `,
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
@@ -95,7 +95,7 @@ const UserDataDownloadButton = ({ user }: UserDataDownloadButtonProps) => {
           Prompt: log.line_suggestion?.line_suggestions_group?.prompt,
           Suggestions: log.line_suggestion?.line_suggestions_group?.suggestions
             ? JSON.stringify(
-                log.line_suggestion.line_suggestions_group.suggestions
+                log.line_suggestion.line_suggestions_group.suggestions,
               )
             : "N/A",
           Language:

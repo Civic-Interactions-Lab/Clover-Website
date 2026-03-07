@@ -21,7 +21,7 @@ import ActivityStatsCards from "../components/ActivityStatsCards";
 import { useState, useEffect } from "react";
 import NewSurveyDialog from "@/pages/dashboard/ui/components/NewSurveyDialog";
 import CustomSelect from "@/components/CustomSelect";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -147,7 +147,7 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
-                      }
+                      },
                     )}
                     icon={Calendar}
                   />
@@ -182,7 +182,7 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
-                    }
+                    },
                   )}
                   icon={Calendar}
                 />

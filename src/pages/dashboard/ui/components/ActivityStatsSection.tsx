@@ -80,6 +80,8 @@ const ActivityStatsSection = ({
     };
   } | null>(null);
 
+  console.log("Data", JSON.stringify(userActivity, null, 2));
+
   const handleRealtimeToggle = (enabled: boolean) => {
     setIsRealtimeEnabled(enabled);
     onRealtimeToggle?.(enabled);

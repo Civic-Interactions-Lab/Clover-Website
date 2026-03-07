@@ -1,737 +1,392 @@
-import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/supabaseClient";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
-  Edit,
-  FileText,
-  List,
-  Plus,
-  Trash2,
-  X,
-  Save,
-  AlertTriangle,
-  Heading2,
-  CheckSquare,
-  BarChart3,
-  ChevronDown,
-  Activity,
-} from "lucide-react";
-import { useDebounce } from "@/hooks/useDebounce";
-import SurveyPreview, {
-  Survey,
-  SurveyQuestion,
-} from "../../components/SurveyPreview";
-import CustomSelect from "@/components/CustomSelect";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Edit, X, Save, Trash2, Eye, GripVertical, Plus } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-const CreateEditSurveyView = () => {
-  const [survey, setSurvey] = useState<Survey>({
-    id: "",
-    title: "",
-    description: "",
-    context: "",
-    type: "research",
-    created_at: "",
-    questions: [],
-  });
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [pendingUpdates, setPendingUpdates] = useState<Map<string, any>>(
-    new Map(),
-  );
+const QUESTION_TYPES = [
+  "text",
+  "long_text",
+  "likert",
+  "rating",
+  "multiple_choice",
+  "checkbox",
+  "nasa_tlx",
+] as const;
 
-  // Get surveyId from URL - you'll need to replace this with your router logic
-  const pathname = window.location.pathname;
-  const surveyId = pathname.includes("/survey/")
-    ? pathname.split("/survey/")[1]
-    : null;
+type QuestionType = (typeof QUESTION_TYPES)[number];
 
-  const debouncedUpdates = useDebounce(pendingUpdates, 500) as Map<string, any>;
+const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  text: "Short answer",
+  long_text: "Long answer",
+  likert: "Likert scale",
+  rating: "Rating (slider)",
+  multiple_choice: "Multiple choice",
+  checkbox: "Checkboxes",
+  nasa_tlx: "NASA-TLX",
+};
 
-  useEffect(() => {
-    initializeSurvey();
-  }, []);
+const TYPES_WITH_OPTIONS: QuestionType[] = ["multiple_choice", "checkbox"];
 
-  // Handle debounced updates
-  useEffect(() => {
-    const processUpdates = async () => {
-      if (debouncedUpdates.size === 0) return;
+const NASA_TLX_DIMENSIONS = [
+  "Mental Demand",
+  "Physical Demand",
+  "Temporal Demand",
+  "Performance",
+  "Effort",
+  "Frustration",
+] as const;
 
-      const updates = Array.from(debouncedUpdates.entries());
-      setPendingUpdates(new Map());
+interface SurveyQuestion {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  required: boolean;
+  options?: string[];
+  points?: number;
+  labels?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+}
 
-      for (const [questionId, updateData] of updates) {
-        try {
-          const { error } = await supabase
-            .from("survey_questions")
-            .update(updateData)
-            .eq("id", questionId);
+const QUESTION_DEFAULTS: Record<QuestionType, Partial<SurveyQuestion>> = {
+  text: {},
+  long_text: {},
+  likert: {
+    points: 5,
+    labels: [
+      "Strongly Disagree",
+      "Disagree",
+      "Neutral",
+      "Agree",
+      "Strongly Agree",
+    ],
+  },
+  rating: { min: 1, max: 10, step: 1 },
+  multiple_choice: { options: [] },
+  checkbox: { options: [] },
+  nasa_tlx: { min: 0, max: 100, step: 5 },
+};
 
-          if (error) throw error;
-        } catch (err) {
-          console.error("Failed to update question:", err);
-        }
-      }
-    };
+function generateId() {
+  return crypto.randomUUID().slice(0, 8);
+}
 
-    processUpdates();
-  }, [debouncedUpdates]);
+// ── Question config ───────────────────────────────────────────────────────────
 
-  const initializeSurvey = async () => {
-    if (!surveyId) return;
+function QuestionConfig({
+  question,
+  onChange,
+}: {
+  question: SurveyQuestion;
+  onChange: (q: SurveyQuestion) => void;
+}) {
+  const [newOption, setNewOption] = useState("");
 
-    try {
-      setLoading(true);
-
-      await loadExistingSurvey(surveyId);
-    } catch (error) {
-      console.error("Error initializing survey:", error);
-    } finally {
-      setLoading(false);
-    }
+  const addOption = () => {
+    const t = newOption.trim();
+    if (!t) return;
+    onChange({ ...question, options: [...(question.options ?? []), t] });
+    setNewOption("");
   };
 
-  const loadExistingSurvey = async (id: string) => {
-    try {
-      // Load survey
-      const { data: surveyData, error: surveyError } = await supabase
-        .from("surveys")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (surveyError) throw surveyError;
-
-      // Load questions
-      const { data: questionsData, error: questionsError } = await supabase
-        .from("survey_questions")
-        .select("*")
-        .eq("survey_id", id)
-        .order("question_number");
-
-      if (questionsError) throw questionsError;
-
-      setSurvey({ ...surveyData, questions: questionsData || [] });
-      setQuestions(questionsData || []);
-    } catch (error) {
-      console.error("Error loading survey:", error);
-    }
-  };
-
-  const updateSurveyField = async (field: keyof Survey, value: string) => {
-    setSurvey((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    setHasUnsavedChanges(true);
-
-    // Immediate update for survey fields
-    try {
-      const { error } = await supabase
-        .from("surveys")
-        .update({ [field]: value })
-        .eq("id", survey.id);
-
-      if (error) throw error;
-    } catch (err) {
-      console.error(`Failed to update ${field}:`, err);
-    }
-  };
-
-  const updateQuestion = useCallback(
-    (questionId: string, updates: Partial<SurveyQuestion>) => {
-      // Always update local state
-      setQuestions((prev) =>
-        prev.map((question) =>
-          question.id === questionId ? { ...question, ...updates } : question,
-        ),
-      );
-
-      setHasUnsavedChanges(true);
-
-      // Add to pending updates for debounced save (now includes section titles)
-      setPendingUpdates((prev) => {
-        const newMap = new Map(prev);
-        const existing = newMap.get(questionId) || {};
-        newMap.set(questionId, { ...existing, ...updates });
-        return newMap;
-      });
-    },
-    [questions],
-  );
-
-  const addQuestion = async (
-    type:
-      | "text"
-      | "multiple_choice"
-      | "multiple_select"
-      | "likert"
-      | "section_title"
-      | "slider"
-      | "nasa_tlx",
-  ) => {
-    // Get the next order number for all questions (including section titles)
-    const maxQuestionNumber = Math.max(
-      ...questions.map((q) => q.question_number),
-      0,
-    );
-    const newQuestionNumber = maxQuestionNumber + 1;
-
-    let newQuestionData;
-
-    if (type === "section_title") {
-      newQuestionData = {
-        survey_id: survey.id,
-        question_type: type,
-        question_number: newQuestionNumber,
-        question_text: "New Section",
-        question_options: [""], // For optional description
-        is_required: false,
-      };
-    } else if (type === "slider") {
-      newQuestionData = {
-        survey_id: survey.id,
-        question_type: type,
-        question_number: newQuestionNumber,
-        question_text: "New slider question",
-        question_options: ["1", "10", "", ""],
-        is_required: false,
-      };
-    } else if (type === "nasa_tlx") {
-      newQuestionData = {
-        survey_id: survey.id,
-        question_type: type,
-        question_number: newQuestionNumber,
-        question_text: "NASA Task Load Index (TLX)",
-        question_options: [], // Start empty - user adds scales individually
-        is_required: false,
-      };
-    } else {
-      // ... rest of the cases remain the same
-      switch (type) {
-        case "multiple_select":
-          newQuestionData = {
-            survey_id: survey.id,
-            question_type: type,
-            question_number: newQuestionNumber,
-            question_text: "New multiple select question",
-            question_options: ["Option 1", "Option 2", "Option 3"],
-            is_required: false,
-          };
-          break;
-
-        case "likert":
-          newQuestionData = {
-            survey_id: survey.id,
-            question_type: type,
-            question_number: newQuestionNumber,
-            question_text: "New Likert scale question",
-            question_options: ["5", "Strongly Disagree", "Strongly Agree"],
-            is_required: false,
-          };
-          break;
-
-        case "multiple_choice":
-          newQuestionData = {
-            survey_id: survey.id,
-            question_type: type,
-            question_number: newQuestionNumber,
-            question_text: "New multiple choice question",
-            question_options: ["Option 1", "Option 2"],
-            is_required: false,
-          };
-          break;
-
-        case "text":
-        default:
-          newQuestionData = {
-            survey_id: survey.id,
-            question_type: type,
-            question_number: newQuestionNumber,
-            question_text: "New text question",
-            is_required: false,
-          };
-          break;
-      }
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("survey_questions")
-        .insert([newQuestionData])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setQuestions((prev) => [...prev, data]);
-      setEditingQuestion(data.id);
-      setHasUnsavedChanges(true);
-    } catch (error) {
-      console.error("Error adding question:", error);
-    }
-  };
-
-  const deleteQuestion = async (questionId: string) => {
-    try {
-      const { error } = await supabase
-        .from("survey_questions")
-        .delete()
-        .eq("id", questionId);
-
-      if (error) throw error;
-
-      setQuestions((prev) => {
-        const filtered = prev.filter((question) => question.id !== questionId);
-
-        // Renumber all questions to maintain proper order
-        return filtered.map((question, index) => ({
-          ...question,
-          question_number: index + 1,
-        }));
-      });
-
-      // Update question numbers in database for remaining questions
-      const remainingQuestions = questions
-        .filter((q) => q.id !== questionId)
-        .map((question, index) => ({
-          ...question,
-          question_number: index + 1,
-        }));
-
-      for (const question of remainingQuestions) {
-        await supabase
-          .from("survey_questions")
-          .update({ question_number: question.question_number })
-          .eq("id", question.id);
-      }
-
-      setHasUnsavedChanges(true);
-    } catch (error) {
-      console.error("Error deleting question:", error);
-    }
-  };
-
-  const moveQuestionUp = async (questionId: string) => {
-    const questionIndex = questions.findIndex((q) => q.id === questionId);
-    if (questionIndex <= 0) return;
-
-    const newQuestions = [...questions];
-    [newQuestions[questionIndex - 1], newQuestions[questionIndex]] = [
-      newQuestions[questionIndex],
-      newQuestions[questionIndex - 1],
-    ];
-
-    const updatedQuestions = newQuestions.map((question, idx) => ({
-      ...question,
-      question_number: idx + 1,
-    }));
-
-    setQuestions(updatedQuestions);
-    setHasUnsavedChanges(true);
-
-    // Update in database (now includes section titles)
-    try {
-      for (const question of updatedQuestions) {
-        await supabase
-          .from("survey_questions")
-          .update({ question_number: question.question_number })
-          .eq("id", question.id);
-      }
-    } catch (error) {
-      console.error("Error updating question order:", error);
-    }
-  };
-
-  const moveQuestionDown = async (questionId: string) => {
-    const questionIndex = questions.findIndex((q) => q.id === questionId);
-    if (questionIndex >= questions.length - 1) return;
-
-    const newQuestions = [...questions];
-    [newQuestions[questionIndex], newQuestions[questionIndex + 1]] = [
-      newQuestions[questionIndex + 1],
-      newQuestions[questionIndex],
-    ];
-
-    const updatedQuestions = newQuestions.map((question, idx) => ({
-      ...question,
-      question_number: idx + 1,
-    }));
-
-    setQuestions(updatedQuestions);
-    setHasUnsavedChanges(true);
-
-    // Update in database (now includes section titles)
-    try {
-      for (const question of updatedQuestions) {
-        await supabase
-          .from("survey_questions")
-          .update({ question_number: question.question_number })
-          .eq("id", question.id);
-      }
-    } catch (error) {
-      console.error("Error updating question order:", error);
-    }
-  };
-
-  const saveSurvey = async () => {
-    try {
-      setSaving(true);
-      setHasUnsavedChanges(false);
-      // All updates are already handled in real-time
-    } catch (error) {
-      console.error("Error saving survey:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteSurvey = async () => {
-    if (!survey.id) return;
-
-    try {
-      const { error } = await supabase
-        .from("surveys")
-        .delete()
-        .eq("id", survey.id);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error deleting survey:", error);
-    }
-  };
-
-  const getPreviewData = (): Survey => ({
-    ...survey,
-    questions: questions.sort((a, b) => a.question_number - b.question_number),
-  });
-
-  // Handle page unload for unsaved changes
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        deleteSurvey();
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges, survey.id]);
-
-  const AddQuestionsSection = () => {
+  if (question.type === "likert") {
+    const pts = question.points ?? 5;
+    const labels = question.labels ?? [];
     return (
-      <div className="border p-6 rounded-lg mb-6">
-        <h3 className="text-lg font-semibold mb-4">Add Questions & Sections</h3>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            onClick={() => addQuestion("section_title")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Label className="text-sm font-medium w-32">Scale Size</Label>
+          <Select
+            value={String(pts)}
+            onValueChange={(v) => {
+              const n = Number(v);
+              const defaultLabels = QUESTION_DEFAULTS.likert.labels ?? [];
+              onChange({
+                ...question,
+                points: n,
+                labels: Array.from(
+                  { length: n },
+                  (_, i) => labels[i] ?? defaultLabels[i] ?? `${i + 1}`,
+                ),
+              });
+            }}
           >
-            <Heading2 size={16} />
-            Section Title
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("text")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <FileText size={16} />
-            Text Question
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("slider")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <BarChart3 size={16} />
-            Slider Scale
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("multiple_choice")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <List size={16} />
-            Multiple Choice
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("multiple_select")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <CheckSquare size={16} />
-            Multiple Select
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("likert")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <BarChart3 size={16} />
-            Likert Scale
-          </Button>
-
-          <Button
-            onClick={() => addQuestion("nasa_tlx")}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Activity size={16} />
-            NASA-TLX
-          </Button>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[3, 5, 7, 9].map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}-point scale
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        <div className="mt-4 p-3 text-sm text-orange-300">
-          <strong>Tip:</strong> Use Section Titles to organize your survey into
-          logical groups of questions.
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-          <p>Loading survey editor...</p>
+        <div>
+          <Label className="block text-sm font-medium mb-2">Labels</Label>
+          <div
+            className="grid gap-2"
+            style={{ gridTemplateColumns: `repeat(${Math.min(pts, 3)}, 1fr)` }}
+          >
+            {Array.from({ length: pts }, (_, i) => (
+              <Input
+                key={i}
+                value={labels[i] ?? ""}
+                onChange={(e) => {
+                  const next = [...labels];
+                  next[i] = e.target.value;
+                  onChange({ ...question, labels: next });
+                }}
+                placeholder={`Label ${i + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  const previewData = getPreviewData();
-
-  return (
-    <div className="min-h-screen pt-16">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Side - Editor */}
-          <div className="rounded-lg lg:sticky lg:top-8 border">
-            <div className="flex justify-between items-center rounded-t-lg bg-gray-300 dark:bg-gray-800 border-b p-6">
-              <div className="flex flex-col space-y-2">
-                <h2 className="text-xl font-semibold">Edit Survey</h2>
-                {hasUnsavedChanges && (
-                  <p className="text-amber-600 text-sm mt-1 flex items-center gap-1">
-                    <AlertTriangle size={16} />
-                    You have unsaved changes
-                  </p>
-                )}
-              </div>
-
-              <Button
-                onClick={saveSurvey}
-                disabled={saving}
-                className="flex items-center gap-2"
-              >
-                <Save size={16} />
-                {saving ? "Saving..." : "Save Survey"}
-              </Button>
+  if (question.type === "rating") {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-4">
+          {(["min", "max", "step"] as const).map((field) => (
+            <div key={field}>
+              <Label className="block text-sm font-medium mb-2 capitalize">
+                {field}
+              </Label>
+              <Input
+                type="number"
+                value={
+                  question[field] ??
+                  (field === "min" ? 1 : field === "max" ? 10 : 1)
+                }
+                onChange={(e) =>
+                  onChange({ ...question, [field]: Number(e.target.value) })
+                }
+              />
             </div>
-            <div className="space-y-6 lg:max-h-screen lg:overflow-y-auto px-4">
-              {/* Survey metadata editor */}
-              <h2 className="text-lg font-semibold mt-6 mb-4">Overview</h2>
-              <div className="border p-6 rounded-lg mt-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label className="block text-sm font-medium mb-2">
-                      Title
-                    </Label>
-                    <Input
-                      type="text"
-                      value={survey.title}
-                      onChange={(e) =>
-                        updateSurveyField("title", e.target.value)
-                      }
-                      placeholder="Enter survey title"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="block text-sm font-medium mb-2">
-                      Description
-                    </Label>
-                    <Textarea
-                      value={survey.description}
-                      onChange={(e) =>
-                        updateSurveyField("description", e.target.value)
-                      }
-                      placeholder="Enter survey description"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="block text-sm font-medium mb-2">
-                      Context
-                    </Label>
-                    <Input
-                      type="text"
-                      value={survey.context}
-                      onChange={(e) =>
-                        updateSurveyField("context", e.target.value)
-                      }
-                      placeholder="e.g., classroom, labs, one-on-one"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Questions editor */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Questions</h3>
-
-                {questions
-                  .sort((a, b) => a.question_number - b.question_number)
-                  .map((question) => (
-                    <QuestionItem
-                      key={question.id}
-                      question={question}
-                      editingQuestion={editingQuestion}
-                      setEditingQuestion={setEditingQuestion}
-                      updateQuestion={updateQuestion}
-                      deleteQuestion={deleteQuestion}
-                      moveUp={moveQuestionUp}
-                      moveDown={moveQuestionDown}
-                      questionsCount={questions.length}
-                    />
-                  ))}
-
-                {questions.length === 0 && (
-                  <div className="text-center text-gray-500 py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                    No questions yet. Add some questions to get started.
-                  </div>
-                )}
-              </div>
-
-              {/* Add question controls */}
-              <AddQuestionsSection />
-            </div>
-          </div>
-
-          {/* Right Side - Preview */}
-          <div className="border rounded-lg lg:sticky lg:top-8">
-            <div className="px-6 py-4 border-b bg-gray-50 dark:bg-gray-900">
-              <h2 className="text-xl font-semibold">Live Preview</h2>
-            </div>
-            <div className="lg:max-h-screen lg:overflow-y-auto">
-              <SurveyPreview survey={previewData} />
-            </div>
+          ))}
+        </div>
+        <div>
+          <Label className="block text-sm font-medium mb-2">Preview</Label>
+          <Slider
+            min={question.min ?? 1}
+            max={question.max ?? 10}
+            step={question.step ?? 1}
+            defaultValue={[question.min ?? 1]}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>{question.min ?? 1}</span>
+            <span>{question.max ?? 10}</span>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
 
-export default CreateEditSurveyView;
+  if (TYPES_WITH_OPTIONS.includes(question.type)) {
+    return (
+      <div>
+        <Label className="block text-sm font-medium mb-2">Options</Label>
+        <div className="space-y-2">
+          {question.options?.map((opt, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <Input
+                value={opt}
+                onChange={(e) => {
+                  const newOptions = [...(question.options ?? [])];
+                  newOptions[i] = e.target.value;
+                  onChange({ ...question, options: newOptions });
+                }}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  onChange({
+                    ...question,
+                    options: question.options?.filter((_, idx) => idx !== i),
+                  })
+                }
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <Input
+              value={newOption}
+              onChange={(e) => setNewOption(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addOption();
+                }
+              }}
+              placeholder="Add option..."
+            />
+            <Button variant="outline" size="sm" onClick={addOption}>
+              Add
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-interface QuestionItemProps {
-  question: SurveyQuestion;
-  editingQuestion: string | null;
-  setEditingQuestion: (id: string | null) => void;
-  updateQuestion: (
-    questionId: string,
-    updates: Partial<SurveyQuestion>,
-  ) => void;
-  deleteQuestion: (questionId: string) => void;
-  moveUp: (questionId: string) => void;
-  moveDown: (questionId: string) => void;
-  questionsCount: number;
+  if (question.type === "nasa_tlx") {
+    const selected = question.options ?? [];
+    const toggle = (dim: string) => {
+      const next = selected.includes(dim)
+        ? selected.filter((d) => d !== dim)
+        : [...selected, dim];
+      onChange({ ...question, options: next });
+    };
+    return (
+      <div>
+        <Label className="block text-sm font-medium mb-2">Dimensions</Label>
+        <div className="flex flex-wrap gap-2">
+          {NASA_TLX_DIMENSIONS.map((d) => {
+            const active = selected.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => toggle(d)}
+                className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted text-muted-foreground border-transparent hover:border-border"
+                }`}
+              >
+                {d}
+              </button>
+            );
+          })}
+        </div>
+        {selected.length === 0 && (
+          <p className="text-xs text-amber-600 mt-2">
+            Select at least one dimension.
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground mt-2">
+          {selected.length} selected · 0–100 slider · step 5
+        </p>
+      </div>
+    );
+  }
+
+  return null;
 }
 
-const QuestionItem = ({
-  question,
-  editingQuestion,
-  setEditingQuestion,
-  updateQuestion,
-  deleteQuestion,
-  moveUp,
-  moveDown,
-  questionsCount,
-}: QuestionItemProps) => {
-  const getQuestionTypeLabel = (type: string) => {
-    const labels = {
-      text: "TEXT",
-      multiple_choice: "MULTIPLE CHOICE",
-      multiple_select: "MULTIPLE SELECT",
-      likert: "LIKERT SCALE",
-      section_title: "SECTION",
-      slider: "SLIDER SCALE",
-      nasa_tlx: "NASA-TLX",
-    };
-    return labels[type as keyof typeof labels] || type.toUpperCase();
-  };
+// ── Sortable question card ────────────────────────────────────────────────────
 
-  const handleDeleteOption = (optionIndex: number) => {
-    if (!question.question_options) return;
-    const newOptions = question.question_options.filter(
-      (_, index) => index !== optionIndex,
-    );
-    updateQuestion(question.id, { question_options: newOptions });
-  };
+function SortableQuestionCard({
+  question,
+  index,
+  isEditing,
+  onToggleEdit,
+  onChange,
+  onDelete,
+}: {
+  question: SurveyQuestion;
+  index: number;
+  isEditing: boolean;
+  onToggleEdit: () => void;
+  onChange: (q: SurveyQuestion) => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.id });
 
   return (
-    <div className="border p-4 rounded-lg">
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+      className="border p-4 rounded-lg"
+    >
+      {/* Header row */}
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-1 rounded">
-            {getQuestionTypeLabel(question.question_type)}
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <GripVertical size={16} />
+          </button>
+          <span className="text-xs px-2 py-1 rounded bg-muted">
+            {QUESTION_TYPE_LABELS[question.type]}
           </span>
-          {question.is_required &&
-            question.question_type !== "section_title" && (
-              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                Required
-              </span>
-            )}
+          {question.required && (
+            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+              Required
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => moveUp(question.id)}
-            disabled={question.question_number <= 1}
+            variant={isEditing ? "outline" : "default"}
+            onClick={onToggleEdit}
           >
-            ↑
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => moveDown(question.id)}
-            disabled={question.question_number >= questionsCount}
-          >
-            ↓
-          </Button>
-          <Button
-            size="sm"
-            variant={editingQuestion === question.id ? "outline" : "default"}
-            onClick={() =>
-              setEditingQuestion(
-                editingQuestion === question.id ? null : question.id,
-              )
-            }
-          >
-            {editingQuestion === question.id ? (
+            {isEditing ? (
               <span className="flex items-center gap-1.5">
                 <X size={16} /> Close
               </span>
@@ -744,528 +399,368 @@ const QuestionItem = ({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => deleteQuestion(question.id)}
+            onClick={onDelete}
             className="bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-700/70 border-red-200 hover:border-red-300"
           >
-            <Trash2 size={16} /> Delete
+            <Trash2 size={16} />
           </Button>
         </div>
       </div>
 
-      {/* Question preview when not editing */}
-      {editingQuestion !== question.id && (
-        <div className="text-sm text-gray-600 mb-2">
-          {question.question_type === "section_title" ? (
-            <div>
-              <div className="font-semibold text-lg text-muted-foreground">
-                {question.question_text}
-              </div>
-              {question.question_options?.[0] && (
-                <div className="text-sm mt-1">
-                  {question.question_options[0]}
-                </div>
-              )}
-            </div>
-          ) : (
-            question.question_text
+      {/* Collapsed preview */}
+      {!isEditing && (
+        <p className="text-sm text-gray-600 dark:text-gray-400 ml-6">
+          {question.prompt || (
+            <span className="italic text-muted-foreground">No prompt set</span>
           )}
-        </div>
+        </p>
       )}
 
-      {/* Question editor */}
-      {editingQuestion === question.id && (
+      {/* Expanded edit form */}
+      {isEditing && (
         <div className="space-y-4 border-t pt-4">
           <div>
             <Label className="block text-sm font-medium mb-2">
-              {question.question_type === "section_title"
-                ? "Section Title"
-                : "Question Text"}
+              Question Text
             </Label>
             <Textarea
-              value={question.question_text}
+              value={question.prompt}
               onChange={(e) =>
-                updateQuestion(question.id, {
-                  question_text: e.target.value,
-                })
+                onChange({ ...question, prompt: e.target.value })
               }
-              placeholder={
-                question.question_type === "section_title"
-                  ? "Enter section title..."
-                  : question.question_type === "nasa_tlx"
-                    ? "Enter instructions for NASA-TLX assessment..."
-                    : "Enter your question..."
-              }
+              placeholder="Enter your question..."
               rows={2}
             />
           </div>
 
-          {question.question_type === "section_title" && (
-            <div>
-              <Label className="block text-sm font-medium mb-2">
-                Section Description (Optional)
-              </Label>
-              <Textarea
-                value={question.question_options?.[0] || ""}
-                onChange={(e) =>
-                  updateQuestion(question.id, {
-                    question_options: [e.target.value],
-                  })
-                }
-                placeholder="Enter section description..."
-                rows={2}
-              />
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Label className="block text-sm font-medium mb-2">Type</Label>
+              <Select
+                value={question.type}
+                onValueChange={(v) => {
+                  const type = v as QuestionType;
+                  onChange({
+                    id: question.id,
+                    type,
+                    prompt: question.prompt,
+                    required: question.required,
+                    ...QUESTION_DEFAULTS[type],
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUESTION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {QUESTION_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
-
-          {question.question_type !== "section_title" && (
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id={`required-${question.id}`}
-                checked={question.is_required}
-                onChange={(e) =>
-                  updateQuestion(question.id, {
-                    is_required: e.target.checked,
-                  })
-                }
-                className="rounded"
+            <div className="flex items-center gap-2 pt-6">
+              <Switch
+                id={`req-${question.id}`}
+                checked={question.required}
+                onCheckedChange={(v) => onChange({ ...question, required: v })}
               />
-              <Label htmlFor={`required-${question.id}`} className="text-sm">
+              <Label
+                htmlFor={`req-${question.id}`}
+                className="text-sm cursor-pointer"
+              >
                 Required
               </Label>
             </div>
-          )}
+          </div>
 
-          {question.question_type === "nasa_tlx" && (
-            <div>
-              <Label className="block text-sm font-medium mb-2">
-                NASA-TLX Scales
-              </Label>
-              <div className="space-y-3">
-                {question.question_options?.map((scaleData, index) => {
-                  // Parse scale data: "scaleName|lowLabel|highLabel"
-                  const parts = scaleData.split("|");
-                  const scaleName = parts[0] || "";
-                  const lowLabel = parts[1] || "Low";
-                  const highLabel = parts[2] || "High";
-
-                  return (
-                    <div
-                      key={index}
-                      className="border rounded-lg p-4 space-y-3"
-                    >
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <Label className="text-sm font-medium mb-1">
-                            Scale Name
-                          </Label>
-                          <Input
-                            value={scaleName}
-                            onChange={(e) => {
-                              const newScales = [
-                                ...(question.question_options || []),
-                              ];
-                              newScales[index] =
-                                `${e.target.value}|${lowLabel}|${highLabel}`;
-                              updateQuestion(question.id, {
-                                question_options: newScales,
-                              });
-                            }}
-                            placeholder="Enter scale name (e.g., Mental Demand)"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-sm font-medium mb-1">
-                              Low Label
-                            </Label>
-                            <Input
-                              value={lowLabel}
-                              onChange={(e) => {
-                                const newScales = [
-                                  ...(question.question_options || []),
-                                ];
-                                newScales[index] = `${scaleName}`;
-                                updateQuestion(question.id, {
-                                  question_options: newScales,
-                                });
-                              }}
-                              placeholder="Low"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium mb-1">
-                              High Label
-                            </Label>
-                            <Input
-                              value={highLabel}
-                              onChange={(e) => {
-                                const newScales = [
-                                  ...(question.question_options || []),
-                                ];
-                                newScales[index] =
-                                  `${scaleName}|${lowLabel}|${e.target.value}`;
-                                updateQuestion(question.id, {
-                                  question_options: newScales,
-                                });
-                              }}
-                              placeholder="High"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const newScales =
-                            question.question_options?.filter(
-                              (_, i) => i !== index,
-                            ) || [];
-                          updateQuestion(question.id, {
-                            question_options: newScales,
-                          });
-                        }}
-                        className="text-red-600 hover:text-red-700 w-full"
-                      >
-                        <Trash2 size={16} className="mr-2" />
-                        Remove Scale
-                      </Button>
-                    </div>
-                  );
-                }) || []}
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const currentScales = question.question_options || [];
-                    updateQuestion(question.id, {
-                      question_options: [
-                        ...currentScales,
-                        "New Scale|Low|High",
-                      ],
-                    });
-                  }}
-                  className="w-full mt-2"
-                >
-                  <Plus size={16} className="mr-2" />
-                  Add NASA-TLX Scale
-                </Button>
-              </div>
-
-              {/* Quick add buttons for standard NASA-TLX scales */}
-              <div className="mt-4">
-                <Label className="block text-sm font-medium mb-2">
-                  Quick Add Standard Scales
-                </Label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    {
-                      name: "Mental Demand",
-                      low: "Very Low",
-                      high: "Very High",
-                    },
-                    {
-                      name: "Physical Demand",
-                      low: "Very Low",
-                      high: "Very High",
-                    },
-                    {
-                      name: "Temporal Demand",
-                      low: "Very Low",
-                      high: "Very High",
-                    },
-                    { name: "Performance", low: "Perfect", high: "Failure" },
-                    { name: "Effort", low: "Very Low", high: "Very High" },
-                    { name: "Frustration", low: "Very Low", high: "Very High" },
-                  ].map((standardScale) => {
-                    const scaleString = `${standardScale.name}|${standardScale.low}|${standardScale.high}`;
-                    const alreadyExists = question.question_options?.some(
-                      (option) => option.split("|")[0] === standardScale.name,
-                    );
-
-                    return (
-                      <Button
-                        key={standardScale.name}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const currentScales = question.question_options || [];
-                          updateQuestion(question.id, {
-                            question_options: [...currentScales, scaleString],
-                          });
-                        }}
-                        disabled={alreadyExists}
-                        className="text-xs"
-                      >
-                        {standardScale.name}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="text-xs text-muted-foreground mt-2">
-                Add individual scales for the NASA-TLX assessment. Each scale
-                will be rated from 0 to 20 with custom labels.
-              </div>
-            </div>
-          )}
-
-          {(question.question_type === "multiple_choice" ||
-            question.question_type === "multiple_select") && (
-            <div>
-              <Label className="block text-sm font-medium mb-2">Options</Label>
-              <div className="space-y-2">
-                {question.question_options?.map((option, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <Input
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [
-                          ...(question.question_options || []),
-                        ];
-                        newOptions[index] = e.target.value;
-                        updateQuestion(question.id, {
-                          question_options: newOptions,
-                        });
-                      }}
-                      className="px-2"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteOption(index)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                  </div>
-                )) || []}
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const currentOptions = question.question_options || [];
-                    updateQuestion(question.id, {
-                      question_options: [
-                        ...currentOptions,
-                        `Option ${currentOptions.length + 1}`,
-                      ],
-                    });
-                  }}
-                  className="w-full mt-2"
-                >
-                  <Plus size={16} className="mr-2" />
-                  Add Option
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {question.question_type === "slider" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Minimum Value
-                  </Label>
-                  <Input
-                    type="number"
-                    value={question.question_options?.[0] || "1"}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "1",
-                        "10",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        e.target.value,
-                        currentOptions[1],
-                        currentOptions[2],
-                        currentOptions[3],
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="1"
-                  />
-                </div>
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Maximum Value
-                  </Label>
-                  <Input
-                    type="number"
-                    value={question.question_options?.[1] || "10"}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "1",
-                        "10",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        currentOptions[0],
-                        e.target.value,
-                        currentOptions[2],
-                        currentOptions[3],
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Min Label (Optional)
-                  </Label>
-                  <Input
-                    value={question.question_options?.[2] || ""}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "1",
-                        "10",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        currentOptions[0],
-                        currentOptions[1],
-                        e.target.value,
-                        currentOptions[3],
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="e.g., Low, Poor, Never"
-                  />
-                </div>
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Max Label (Optional)
-                  </Label>
-                  <Input
-                    value={question.question_options?.[3] || ""}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "1",
-                        "10",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        currentOptions[0],
-                        currentOptions[1],
-                        currentOptions[2],
-                        e.target.value,
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="e.g., High, Excellent, Always"
-                  />
-                </div>
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                Users will slide between the min and max values. Labels help
-                explain what the values mean.
-              </div>
-            </div>
-          )}
-
-          {question.question_type === "likert" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Label className="text-sm font-medium w-32">Scale Size</Label>
-                <CustomSelect
-                  value={question.question_options?.[0] || "5"}
-                  onValueChange={(value) => {
-                    const currentOptions = question.question_options || ["5"];
-                    const newOptions = [
-                      value,
-                      currentOptions[1] || "",
-                      currentOptions[2] || "",
-                    ];
-                    updateQuestion(question.id, {
-                      question_options: newOptions,
-                    });
-                  }}
-                  options={[
-                    { value: "3", label: "3-point scale" },
-                    { value: "5", label: "5-point scale" },
-                    { value: "7", label: "7-point scale" },
-                  ]}
-                  placeholder="Select scale"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Left Label (Optional)
-                  </Label>
-                  <Input
-                    value={question.question_options?.[1] || ""}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "5",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        currentOptions[0],
-                        e.target.value,
-                        currentOptions[2],
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="e.g., Strongly Disagree"
-                  />
-                </div>
-                <div>
-                  <Label className="block text-sm font-medium mb-2">
-                    Right Label (Optional)
-                  </Label>
-                  <Input
-                    value={question.question_options?.[2] || ""}
-                    onChange={(e) => {
-                      const currentOptions = question.question_options || [
-                        "5",
-                        "",
-                        "",
-                      ];
-                      const newOptions = [
-                        currentOptions[0],
-                        currentOptions[1],
-                        e.target.value,
-                      ];
-                      updateQuestion(question.id, {
-                        question_options: newOptions,
-                      });
-                    }}
-                    placeholder="e.g., Strongly Agree"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          <QuestionConfig question={question} onChange={onChange} />
         </div>
       )}
     </div>
   );
+}
+
+// ── Main view ─────────────────────────────────────────────────────────────────
+
+interface SurveyRow {
+  id: string;
+  title: string;
+  description: string | null;
+  is_active: boolean;
+  questions: SurveyQuestion[];
+}
+
+const CreateEditSurveyView = () => {
+  const { surveyId } = useParams<{ surveyId: string }>();
+  const navigate = useNavigate();
+
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [isActive, setIsActive] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!surveyId || initialized.current) return;
+    initialized.current = true;
+
+    const load = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id ?? null);
+
+        const { data, error } = await supabase
+          .from("surveys")
+          .select("*")
+          .eq("id", surveyId)
+          .single<SurveyRow>();
+
+        if (error) throw error;
+
+        setTitle(data.title);
+        setDescription(data.description ?? "");
+        setIsActive(data.is_active);
+        setQuestions((data.questions as SurveyQuestion[]) ?? []);
+      } catch (err) {
+        console.error("Error loading survey:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [surveyId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setQuestions((prev) => {
+      const oldIndex = prev.findIndex((q) => q.id === active.id);
+      const newIndex = prev.findIndex((q) => q.id === over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  };
+
+  const handleSave = useCallback(async () => {
+    if (!surveyId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("surveys")
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          is_active: isActive,
+          questions,
+        })
+        .eq("id", surveyId);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error saving survey:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [surveyId, title, description, isActive, questions]);
+
+  const addQuestion = () => {
+    const newQ: SurveyQuestion = {
+      id: generateId(),
+      type: "text",
+      prompt: "",
+      required: false,
+    };
+    setQuestions((prev) => [...prev, newQ]);
+    setEditingId(newQ.id);
+  };
+
+  const updateQuestion = (i: number, q: SurveyQuestion) =>
+    setQuestions((prev) => prev.map((x, idx) => (idx === i ? q : x)));
+
+  const deleteQuestion = (i: number) => {
+    setQuestions((prev) => prev.filter((_, idx) => idx !== i));
+    setDeleteIndex(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 animate-spin mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full" />
+          <p>Loading survey editor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pt-16">
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
+        {/* Header bar */}
+        <div className="flex justify-between items-center rounded-t-lg bg-gray-300 dark:bg-gray-800 border border-b-0 p-6">
+          <div>
+            <h2 className="text-xl font-semibold">Edit Survey</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {questions.length} question{questions.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                navigate(
+                  `/survey?surveyId=${surveyId}&userId=${currentUserId ?? ""}`,
+                )
+              }
+              className="flex items-center gap-2"
+            >
+              <Eye size={16} />
+              Preview
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? "Saving..." : "Save Survey"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="border border-t-0 rounded-b-lg space-y-6 p-6">
+          {/* Overview */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Overview</h3>
+            <div className="border p-6 rounded-lg space-y-4">
+              <div>
+                <Label className="block text-sm font-medium mb-2">Title</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter survey title"
+                />
+              </div>
+              <div>
+                <Label className="block text-sm font-medium mb-2">
+                  Description
+                </Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter survey description"
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="survey-active"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
+                />
+                <Label
+                  htmlFor="survey-active"
+                  className="text-sm cursor-pointer"
+                >
+                  Open for responses
+                </Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Questions */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Questions</h3>
+
+            {questions.length === 0 && (
+              <div className="text-center text-gray-500 py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                No questions yet. Add some questions to get started.
+              </div>
+            )}
+
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={questions.map((q) => q.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {questions.map((q, i) => (
+                    <SortableQuestionCard
+                      key={q.id}
+                      question={q}
+                      index={i}
+                      isEditing={editingId === q.id}
+                      onToggleEdit={() =>
+                        setEditingId(editingId === q.id ? null : q.id)
+                      }
+                      onChange={(updated) => updateQuestion(i, updated)}
+                      onDelete={() => setDeleteIndex(i)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+
+            <Button
+              variant="outline"
+              className="w-full flex items-center gap-2 mt-2"
+              onClick={addQuestion}
+            >
+              <Plus size={16} />
+              Add question
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={deleteIndex !== null}
+        onOpenChange={(o) => !o && setDeleteIndex(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove question?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove Q{(deleteIndex ?? 0) + 1}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deleteIndex !== null && deleteQuestion(deleteIndex)
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 };
+
+export default CreateEditSurveyView;

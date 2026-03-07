@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import {
   Dialog,
   DialogContent,
@@ -7,19 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-
-type SURVEY_TYPES = "PRE_SURVEY" | "POST_SURVEY" | "POST_STUDY";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   open: boolean;
@@ -32,8 +24,7 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    context: "",
-    type: "PRE_SURVEY" as SURVEY_TYPES,
+    is_active: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -50,10 +41,6 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
       newErrors.description = "Description too long (max 1000 characters)";
     }
 
-    if (formData.context && formData.context.length > 100) {
-      newErrors.context = "Context too long (max 100 characters)";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -66,7 +53,6 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
     try {
       setIsCreating(true);
 
-      // Get current user for RLS
       const {
         data: { user },
         error: userError,
@@ -76,35 +62,24 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
         return;
       }
 
-      const newSurveyData = {
-        title: formData.title,
-        description: formData.description || "",
-        context: formData.context || "",
-        type: formData.type,
-      };
-
       const { data: surveyData, error } = await supabase
         .from("surveys")
-        .insert([newSurveyData])
+        .insert([
+          {
+            title: formData.title.trim(),
+            description: formData.description.trim() || null,
+            is_active: formData.is_active,
+            questions: [],
+          },
+        ])
         .select()
         .single();
 
       if (error) throw error;
 
-      console.log("Survey created successfully!");
-
-      // Close dialog and notify parent
       onOpenChange(false);
       onSurveyCreated?.(surveyData.id);
-
-      // Reset form
-      setFormData({
-        title: "",
-        description: "",
-        context: "",
-        type: "PRE_SURVEY",
-      });
-      setErrors({});
+      resetForm();
     } catch (error: any) {
       console.error("Error creating survey:", error);
       setErrors({ submit: error.message || "Failed to create survey" });
@@ -113,21 +88,22 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
     }
   };
 
-  const handleCancel = () => {
-    setFormData({
-      title: "",
-      description: "",
-      context: "",
-      type: "PRE_SURVEY",
-    });
+  const resetForm = () => {
+    setFormData({ title: "", description: "", is_active: false });
     setErrors({});
+  };
+
+  const handleCancel = () => {
+    resetForm();
     onOpenChange(false);
   };
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
+  const handleInputChange = (
+    field: keyof typeof formData,
+    value: string | boolean,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
+    if (errors[field as string]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   };
@@ -172,38 +148,20 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="context">Context (Optional)</Label>
-            <Input
-              id="context"
-              value={formData.context}
-              onChange={(e) => handleInputChange("context", e.target.value)}
-              placeholder="e.g., study_phase_1, baseline"
-              disabled={isCreating}
-            />
-            {errors.context && (
-              <p className="text-sm text-red-600">{errors.context}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Survey Type</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value: SURVEY_TYPES) =>
-                handleInputChange("type", value)
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label>Active</Label>
+              <p className="text-sm text-muted-foreground">
+                Make this survey immediately available to participants
+              </p>
+            </div>
+            <Switch
+              checked={formData.is_active}
+              onCheckedChange={(checked) =>
+                handleInputChange("is_active", checked)
               }
               disabled={isCreating}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select survey type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PRE_SURVEY">Pre-Survey</SelectItem>
-                <SelectItem value="POST_SURVEY">Post-Survey</SelectItem>
-                <SelectItem value="POST_STUDY">Post-Study</SelectItem>
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {errors.submit && (
