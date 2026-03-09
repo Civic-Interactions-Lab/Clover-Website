@@ -15,7 +15,7 @@ export async function registerUser(
   lastName: string,
   email: string,
   password: string,
-  isConsent?: boolean
+  isConsent?: boolean,
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     const response = await fetch(`${AUTH_ENDPOINT}/signup`, {
@@ -49,7 +49,7 @@ export async function registerUser(
 
 export async function loginUser(
   email: string,
-  password: string
+  password: string,
 ): Promise<{ userId?: string; error?: string }> {
   try {
     const response = await fetch(`${AUTH_ENDPOINT}/login`, {
@@ -89,7 +89,7 @@ export async function checkAndRegisterUser(
   firstName: string,
   lastName: string,
   email: string,
-  id: string
+  id: string,
 ): Promise<{ error?: string }> {
   try {
     const response = await fetch(`${AUTH_ENDPOINT}/check`, {
@@ -112,6 +112,32 @@ export async function checkAndRegisterUser(
     }
 
     return { error: undefined };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Unknown error occurred",
+    };
+  }
+}
+
+export async function anonymousAuth(
+  mode: "signin" | "signup",
+  code: string,
+  isConsent?: boolean,
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${AUTH_ENDPOINT}/anonymous/${mode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code.trim().toLowerCase(), isConsent }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { error: data.error ?? "Authentication failed" };
+    }
+
+    return { success: true };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Unknown error occurred",

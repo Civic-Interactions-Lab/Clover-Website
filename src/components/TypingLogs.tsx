@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient.ts";
 import { User } from "@/types/user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,12 +24,15 @@ import {
   Bot,
   RefreshCw,
   Loader2,
+  MousePointer,
+  Copy,
+  Clipboard,
 } from "lucide-react";
 
-type TypingLogData = {
+type LogEventData = {
   id: string;
-  created_at: string;
-  raw_text: string;
+  client_timestamp: number;
+  snapshot: string;
   line_suggestion_id: string | null;
   user_id: string;
   event: string;
@@ -43,8 +46,8 @@ type TypingLogData = {
 
 type TimelineEvent = {
   id: string;
-  timestamp: string;
-  type: "typing" | "suggestion_event";
+  timestamp: number; // bigint ms
+  type: "typing" | "suggestion_event" | "other";
   content: string;
   event: string;
   suggestionData?: {
@@ -58,71 +61,64 @@ interface TypingLogsProps {
   userId: string;
 }
 
+const focusEvents = [
+  "TYPED",
+  "SUGGESTION_SHOWN",
+  "SUGGESTION_TAB_CLICKED",
+  "RUN",
+  "SUGGESTION_GENERATED",
+  "MOUSE_CLICKED",
+  "MOUSE_SELECTED",
+  "COPIED",
+  "PASTED",
+  "SUGGESTION_REQUESTED",
+  "SUGGESTION_RECEIVED",
+  "SUGGESTION_FETCHED",
+  "SUGGESTION_CACHED",
+];
+
+const eventSelectOptions = [
+  { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
+  { value: "SUGGESTION_TAB_CLICKED", label: "Tab Accept" },
+  { value: "RUN", label: "Run Command" },
+  { value: "SUGGESTION_GENERATED", label: "Generated" },
+  { value: "TYPED", label: "Typed" },
+];
+
 const TypingLogs = ({ userId }: TypingLogsProps) => {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Navigation state
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
-
-  // Event-specific navigation state
   const [selectedEventType, setSelectedEventType] =
     useState<string>("SUGGESTION_SHOWN");
 
-  // Pagination state - removed maxRecords since we're fetching all
   const [totalRecordsFound, setTotalRecordsFound] = useState(0);
   const [fetchCancelled, setFetchCancelled] = useState(false);
   const [batchesFetched, setBatchesFetched] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState<string>("");
 
-  // Focus on these 5 events
-  const focusEvents = [
-    "TYPING",
-    "SUGGESTION_SHOWN",
-    "SUGGESTION_TAB_ACCEPT",
-    "RUN",
-    "SUGGESTION_GENERATE",
-  ];
-
-  // Event options for the select dropdown (excluding TYPING)
-  const eventSelectOptions = [
-    { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
-    { value: "SUGGESTION_TAB_ACCEPT", label: "Tab Accept" },
-    { value: "RUN", label: "Run Command" },
-    { value: "SUGGESTION_GENERATE", label: "Generate Suggestion" },
-  ];
-
-  // Fetch user data based on passed userId
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
-
       try {
-        const { data: userData, error: userError } = await supabase
+        const { data, error } = await supabase
           .from("users")
           .select("*")
           .eq("id", userId)
           .single();
-
-        if (userError) {
-          throw userError;
-        }
-
-        setCurrentUser(userData as User);
+        if (error) throw error;
+        setCurrentUser(data as User);
       } catch (err) {
-        console.error("Error fetching user:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch user data",
-        );
+        setError(err instanceof Error ? err.message : "Failed to fetch user");
       }
     };
-
     fetchUser();
   }, [userId]);
 
-  const fetchTypingLogs = async () => {
+  const fetchLogs = async () => {
     if (!userId) return;
 
     setLoading(true);
@@ -133,7 +129,7 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
     setLoadingProgress("Initializing...");
 
     try {
-      const allLogs: TypingLogData[] = [];
+      const allLogs: LogEventData[] = [];
       let from = 0;
       const batchSize = 1000;
       let hasMoreData = true;
@@ -147,12 +143,12 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
         );
 
         const { data, error } = await supabase
-          .from("typing_log")
+          .from("log_event")
           .select(
             `
             id,
-            created_at,
-            raw_text,
+            client_timestamp,
+            snapshot,
             line_suggestion_id,
             user_id,
             event,
@@ -166,60 +162,54 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
           )
           .eq("user_id", userId)
           .in("event", focusEvents)
-          .order("created_at", { ascending: true })
+          .order("client_timestamp", { ascending: true })
           .range(from, from + batchSize - 1);
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
-        const logs = data as unknown as TypingLogData[];
+        const logs = data as unknown as LogEventData[];
         allLogs.push(...logs);
         totalFetched += logs.length;
-
         setTotalRecordsFound(totalFetched);
 
-        // Check if we got a full batch, if not, we're done
         hasMoreData = logs.length === batchSize;
         from += batchSize;
 
-        // Add a small delay to prevent overwhelming the server
         if (hasMoreData) {
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
       }
 
-      if (fetchCancelled) {
-        return;
-      }
+      if (fetchCancelled) return;
 
       setLoadingProgress(
         `Processing ${totalFetched.toLocaleString()} records...`,
       );
 
-      // Process logs into timeline events
       const timelineEvents: TimelineEvent[] = allLogs.map((log) => ({
         id: log.id,
-        timestamp: log.created_at,
-        type: log.event === "TYPING" ? "typing" : "suggestion_event",
-        content: log.raw_text,
-        event: log.event || "TYPING", // Default to TYPING
+        timestamp: log.client_timestamp,
+        type:
+          log.event === "TYPED"
+            ? "typing"
+            : log.event.startsWith("SUGGESTION")
+              ? "suggestion_event"
+              : "other",
+        content: log.snapshot ?? "",
+        event: log.event,
         suggestionData: log.line_suggestions
           ? {
-              correctLine: log.line_suggestions.correct_line || null,
-              incorrectLine: log.line_suggestions.incorrect_line || null,
+              correctLine: log.line_suggestions.correct_line ?? null,
+              incorrectLine: log.line_suggestions.incorrect_line ?? null,
               shownBug: log.line_suggestions.shown_bug ?? null,
             }
           : undefined,
       }));
 
       setTimeline(timelineEvents);
-      setCurrentLogIndex(0); // Reset to first record
+      setCurrentLogIndex(0);
     } catch (err) {
-      console.error("Error fetching typing logs:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch typing logs",
-      );
+      setError(err instanceof Error ? err.message : "Failed to fetch logs");
     } finally {
       setLoading(false);
       setLoadingProgress("");
@@ -232,13 +222,12 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
     setLoadingProgress("");
   };
 
-  // Trigger fetch when userId changes
   useEffect(() => {
-    fetchTypingLogs();
+    fetchLogs();
   }, [userId]);
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString("en-US", {
+  const formatTimestamp = (ts: number) => {
+    return new Date(ts).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -247,89 +236,50 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
     });
   };
 
-  // Calculate time difference from previous event
   const getTimeDifference = (currentIndex: number) => {
-    if (currentIndex === 0) return 0;
-
-    const currentTime = new Date(timeline[currentIndex].timestamp).getTime();
-    const previousTime = new Date(
-      timeline[currentIndex - 1].timestamp,
-    ).getTime();
-    const diffMs = currentTime - previousTime;
-
-    // Format the difference in a human-readable way
-    if (diffMs < 1000) {
-      return `+${diffMs}ms`;
-    } else if (diffMs < 60000) {
-      return `+${(diffMs / 1000).toFixed(1)}s`;
-    } else if (diffMs < 3600000) {
-      return `+${(diffMs / 60000).toFixed(1)}m`;
-    } else {
-      return `+${(diffMs / 3600000).toFixed(1)}h`;
-    }
+    if (currentIndex === 0) return "start";
+    const diffMs =
+      timeline[currentIndex].timestamp - timeline[currentIndex - 1].timestamp;
+    if (diffMs < 1000) return `+${diffMs}ms`;
+    if (diffMs < 60000) return `+${(diffMs / 1000).toFixed(1)}s`;
+    if (diffMs < 3600000) return `+${(diffMs / 60000).toFixed(1)}m`;
+    return `+${(diffMs / 3600000).toFixed(1)}h`;
   };
 
-  // Navigation functions
   const goToNextLog = () => {
-    if (currentLogIndex < timeline.length - 1) {
+    if (currentLogIndex < timeline.length - 1)
       setCurrentLogIndex(currentLogIndex + 1);
-    }
   };
-
   const goToPreviousLog = () => {
-    if (currentLogIndex > 0) {
-      setCurrentLogIndex(currentLogIndex - 1);
-    }
+    if (currentLogIndex > 0) setCurrentLogIndex(currentLogIndex - 1);
   };
+  const goToFirstLog = () => setCurrentLogIndex(0);
+  const goToLastLog = () => setCurrentLogIndex(timeline.length - 1);
 
-  const goToFirstLog = () => {
-    setCurrentLogIndex(0);
-  };
-
-  const goToLastLog = () => {
-    setCurrentLogIndex(timeline.length - 1);
-  };
-
-  // Event-specific navigation functions
   const goToNextEventOfType = (eventType: string) => {
-    const nextIndex = timeline.findIndex(
-      (event, index) => index > currentLogIndex && event.event === eventType,
+    const idx = timeline.findIndex(
+      (e, i) => i > currentLogIndex && e.event === eventType,
     );
-    if (nextIndex !== -1) {
-      setCurrentLogIndex(nextIndex);
-    }
+    if (idx !== -1) setCurrentLogIndex(idx);
   };
 
   const goToPreviousEventOfType = (eventType: string) => {
-    // Find the last occurrence before current index
-    let previousIndex = -1;
     for (let i = currentLogIndex - 1; i >= 0; i--) {
       if (timeline[i].event === eventType) {
-        previousIndex = i;
-        break;
+        setCurrentLogIndex(i);
+        return;
       }
     }
-    if (previousIndex !== -1) {
-      setCurrentLogIndex(previousIndex);
-    }
   };
 
-  // Check if there are next/previous events of selected type
-  const hasNextEventOfType = (eventType: string) => {
-    return timeline.some(
-      (event, index) => index > currentLogIndex && event.event === eventType,
-    );
-  };
+  const hasNextEventOfType = (eventType: string) =>
+    timeline.some((e, i) => i > currentLogIndex && e.event === eventType);
 
-  const hasPreviousEventOfType = (eventType: string) => {
-    return timeline.some(
-      (event, index) => index < currentLogIndex && event.event === eventType,
-    );
-  };
+  const hasPreviousEventOfType = (eventType: string) =>
+    timeline.some((e, i) => i < currentLogIndex && e.event === eventType);
 
-  // Format raw text with syntax highlighting and line numbers
-  const formatRawText = (rawText: string) => {
-    const lines = rawText.split("\n");
+  const formatSnapshot = (text: string) => {
+    const lines = text.split("\n");
     return (
       <div className="bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-lg p-4 font-mono text-sm overflow-x-auto max-h-96 overflow-y-auto border">
         {lines.map((line, index) => (
@@ -346,18 +296,31 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
 
   const getEventIcon = (event: string) => {
     switch (event) {
-      case "TYPING":
+      case "TYPED":
         return Keyboard;
-      case "SUGGESTION_TAB_ACCEPT":
+      case "SUGGESTION_TAB_CLICKED":
         return CheckCircle;
-      case "SUGGESTION_LINE_REJECT":
-        return XCircle;
       case "SUGGESTION_SHOWN":
         return Eye;
-      case "SUGGESTION_GENERATE":
+      case "SUGGESTION_GENERATED":
+        return Bot;
+      case "SUGGESTION_REQUESTED":
+        return Bot;
+      case "SUGGESTION_RECEIVED":
+        return Bot;
+      case "SUGGESTION_FETCHED":
+        return Bot;
+      case "SUGGESTION_CACHED":
         return Bot;
       case "RUN":
         return CodeXml;
+      case "MOUSE_CLICKED":
+      case "MOUSE_SELECTED":
+        return MousePointer;
+      case "COPIED":
+        return Copy;
+      case "PASTED":
+        return Clipboard;
       default:
         return FileText;
     }
@@ -365,71 +328,72 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
 
   const getEventColor = (event: string) => {
     switch (event) {
-      case "SUGGESTION_TAB_ACCEPT":
+      case "SUGGESTION_TAB_CLICKED":
         return "border-green-200 dark:border-green-800";
-      case "SUGGESTION_LINE_REJECT":
-        return "border-red-200 dark:border-red-800";
       case "SUGGESTION_SHOWN":
         return "border-yellow-500 dark:border-yellow-300";
-      case "SUGGESTION_GENERATE":
+      case "SUGGESTION_GENERATED":
+      case "SUGGESTION_REQUESTED":
+      case "SUGGESTION_RECEIVED":
+      case "SUGGESTION_FETCHED":
+      case "SUGGESTION_CACHED":
         return "border-blue-200 dark:border-blue-800";
       case "RUN":
         return "border-purple-200 dark:border-purple-800";
-      case "TYPING":
+      case "MOUSE_CLICKED":
+      case "MOUSE_SELECTED":
+        return "border-orange-200 dark:border-orange-800";
+      case "COPIED":
+      case "PASTED":
+        return "border-pink-200 dark:border-pink-800";
+      case "TYPED":
       default:
         return "border-gray-400 dark:border-gray-600";
     }
   };
 
   const getEventDisplayName = (event: string) => {
-    switch (event) {
-      case "TYPING":
-        return "Typing";
-      case "SUGGESTION_TAB_ACCEPT":
-        return "Tab Accept";
-      case "SUGGESTION_LINE_REJECT":
-        return "Line Reject";
-      case "SUGGESTION_SHOWN":
-        return "Suggestion Shown";
-      case "SUGGESTION_GENERATE":
-        return "Generate Suggestion";
-      case "RUN":
-        return "Run Command";
-      default:
-        return event.replace("SUGGESTION_", "").replace("_", " ");
-    }
+    const map: Record<string, string> = {
+      TYPED: "Typed",
+      SUGGESTION_TAB_CLICKED: "Tab Accept",
+      SUGGESTION_SHOWN: "Suggestion Shown",
+      SUGGESTION_GENERATED: "Generated",
+      SUGGESTION_REQUESTED: "Requested",
+      SUGGESTION_RECEIVED: "Received",
+      SUGGESTION_FETCHED: "Fetched",
+      SUGGESTION_CACHED: "Cached",
+      RUN: "Run Command",
+      MOUSE_CLICKED: "Mouse Click",
+      MOUSE_SELECTED: "Mouse Select",
+      COPIED: "Copied",
+      PASTED: "Pasted",
+    };
+    return map[event] ?? event;
   };
 
-  // Add keyboard navigation
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (loading) return; // Don't navigate while loading
-
-      switch (event.key) {
-        case "ArrowLeft":
-          event.preventDefault();
-          goToPreviousLog();
-          break;
-        case "ArrowRight":
-          event.preventDefault();
-          goToNextLog();
-          break;
+      if (loading) return;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToPreviousLog();
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToNextLog();
       }
     };
-
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [currentLogIndex, timeline.length, loading]);
 
   if (!userId) {
     return (
-      <Card className="overflow-hidden border-yellow-200 dark:border-yellow-800">
+      <Card className="border-yellow-200 dark:border-yellow-800">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 text-yellow-700 dark:text-yellow-300">
             <AlertTriangle className="size-5" />
-            <p>
-              No user ID provided. Please select a user to view typing logs.
-            </p>
+            <p>No user ID provided. Please select a user to view logs.</p>
           </div>
         </CardContent>
       </Card>
@@ -438,18 +402,17 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
 
   if (error) {
     return (
-      <Card className="overflow-hidden border-red-200 dark:border-red-800">
+      <Card className="border-red-200 dark:border-red-800">
         <CardContent className="p-6">
           <div className="flex items-center gap-3 text-red-700 dark:text-red-300">
             <XCircle className="size-5" />
             <p>Error: {error}</p>
           </div>
           <button
-            onClick={fetchTypingLogs}
+            onClick={fetchLogs}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
           >
-            <RefreshCw className="size-4" />
-            Retry
+            <RefreshCw className="size-4" /> Retry
           </button>
         </CardContent>
       </Card>
@@ -458,16 +421,13 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
 
   return (
     <Card className="overflow-hidden">
-      {/* Header */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pt-3 pb-6 px-8">
         <div className="flex items-center space-x-4">
           <div className="flex items-center justify-center w-12 h-12 bg-primary/10 rounded-xl">
             <Keyboard className="size-6 text-primary" />
           </div>
           <div className="flex flex-col space-y-1">
-            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-              Typing Timeline
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">Event Timeline</CardTitle>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <UserIcon className="size-4" />
               <span>
@@ -479,27 +439,25 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
             </div>
           </div>
         </div>
-
         <button
-          onClick={fetchTypingLogs}
+          onClick={fetchLogs}
           disabled={loading}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center gap-2"
         >
           <RefreshCw className="size-4" />
-          <span className="hidden md:inline">Reload All Records</span>
+          <span className="hidden md:inline">Reload</span>
         </button>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Loading State */}
         {loading && (
           <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
               <div className="flex flex-col items-center space-y-4">
-                <Loader2 className="size-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                <Loader2 className="size-8 text-blue-600 animate-spin" />
                 <div className="text-center">
                   <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                    Loading All Typing Logs
+                    Loading Event Logs
                   </h3>
                   <p className="text-blue-700 dark:text-blue-300 mb-2">
                     {loadingProgress}
@@ -509,6 +467,12 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                     <span>•</span>
                     <span>Records: {totalRecordsFound.toLocaleString()}</span>
                   </div>
+                  <button
+                    onClick={cancelFetch}
+                    className="mt-3 text-sm underline text-blue-600 hover:text-blue-800"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </CardContent>
@@ -519,25 +483,20 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
           <div className="text-center py-12">
             <FileText className="size-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground text-lg">
-              No typing logs found for this user.
-            </p>
-            <p className="text-muted-foreground text-sm mt-2">
-              Check if the user has any activity in the system.
+              No events found for this user.
             </p>
           </div>
         ) : timeline.length > 0 && !loading ? (
           <>
-            {/* Navigation Controls Card */}
+            {/* Navigation */}
             <Card className="bg-muted/40">
               <CardContent className="p-4 pt-0">
-                {/* Mobile-first stacked layout */}
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  {/* Navigation Buttons - Responsive Grid */}
                   <div className="flex items-center gap-2">
                     <button
                       onClick={goToFirstLog}
                       disabled={currentLogIndex === 0}
-                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors min-w-0"
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-primary/90"
                     >
                       <ChevronsLeft className="size-4" />
                       <span className="hidden sm:inline">First</span>
@@ -545,21 +504,19 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                     <button
                       onClick={goToPreviousLog}
                       disabled={currentLogIndex === 0}
-                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors min-w-0"
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-primary/90"
                     >
                       <ChevronLeft className="size-4" />
                       <span className="hidden sm:inline">Prev</span>
                     </button>
-                    <div className="flex items-center justify-center sm:justify-start lg:justify-center">
-                      <div className="px-4 py-2 bg-background border rounded-lg text-sm font-medium min-w-fit">
-                        {(currentLogIndex + 1).toLocaleString()} /{" "}
-                        {timeline.length.toLocaleString()}
-                      </div>
+                    <div className="px-4 py-2 bg-background border rounded-lg text-sm font-medium min-w-fit">
+                      {(currentLogIndex + 1).toLocaleString()} /{" "}
+                      {timeline.length.toLocaleString()}
                     </div>
                     <button
                       onClick={goToNextLog}
                       disabled={currentLogIndex === timeline.length - 1}
-                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors min-w-0"
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-primary/90"
                     >
                       <span className="hidden sm:inline">Next</span>
                       <ChevronRight className="size-4" />
@@ -567,81 +524,71 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                     <button
                       onClick={goToLastLog}
                       disabled={currentLogIndex === timeline.length - 1}
-                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors min-w-0"
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-primary/90"
                     >
                       <span className="hidden sm:inline">Last</span>
                       <ChevronsRight className="size-4" />
                     </button>
                   </div>
 
-                  {/* Timestamp Info - Stacked on mobile, inline on larger screens */}
-                  <div className="flex flex-col sm:flex-row items-center gap-2 text-sm text-muted-foreground min-w-0">
-                    <div className="flex items-center gap-2 truncate">
-                      <Calendar className="size-4 flex-shrink-0" />
-                      <span className="truncate">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="size-4" />
+                      <span>
                         {timeline[currentLogIndex] &&
                           formatTimestamp(timeline[currentLogIndex].timestamp)}
                       </span>
                     </div>
-                    {timeline[currentLogIndex] && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Clock className="size-4" />
-                        <span className="font-mono">
-                          {getTimeDifference(currentLogIndex)}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Clock className="size-4" />
+                      <span className="font-mono">
+                        {getTimeDifference(currentLogIndex)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Event-specific navigation controls */}
+                {/* Jump to event type */}
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    {/* Event selection and navigation buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                        Jump to event:
+                        Jump to:
                       </span>
-
                       <CustomSelect
                         value={selectedEventType}
                         onValueChange={setSelectedEventType}
                         options={eventSelectOptions}
-                        className="w-40"
-                        placeholder="Select event type"
+                        className="w-44"
+                        placeholder="Select event"
                       />
-
                       <button
                         onClick={() =>
                           goToPreviousEventOfType(selectedEventType)
                         }
                         disabled={!hasPreviousEventOfType(selectedEventType)}
-                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors min-w-0"
+                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-secondary/90"
                       >
                         <SkipBack className="size-4" />
                         <span className="hidden sm:inline">Prev</span>
                       </button>
-
                       <button
                         onClick={() => goToNextEventOfType(selectedEventType)}
                         disabled={!hasNextEventOfType(selectedEventType)}
-                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2 hover:bg-secondary/90 transition-colors min-w-0"
+                        className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-sm flex items-center gap-2 hover:bg-secondary/90"
                       >
                         <span className="hidden sm:inline">Next</span>
                         <SkipForward className="size-4" />
                       </button>
                     </div>
-
-                    {/* Event count info */}
                     <div className="text-sm text-muted-foreground">
                       <span className="font-medium">
                         {getEventDisplayName(selectedEventType)}:
                       </span>
                       <span className="ml-1">
                         {
-                          timeline.filter(
-                            (event) => event.event === selectedEventType,
-                          ).length
+                          timeline.filter((e) => e.event === selectedEventType)
+                            .length
                         }{" "}
                         events
                       </span>
@@ -651,7 +598,7 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
               </CardContent>
             </Card>
 
-            {/* Current Log Display */}
+            {/* Current event */}
             {timeline[currentLogIndex] && (
               <Card
                 className={`overflow-hidden border-2 ${getEventColor(timeline[currentLogIndex].event)}`}
@@ -661,27 +608,31 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                     <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-lg flex-shrink-0">
                       {React.createElement(
                         getEventIcon(timeline[currentLogIndex].event),
-                        {
-                          className: "size-5 text-primary",
-                        },
+                        { className: "size-5 text-primary" },
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-xl text-gray-900 dark:text-white">
+                      <CardTitle className="text-xl">
                         {getEventDisplayName(timeline[currentLogIndex].event)}
                       </CardTitle>
-                      <div className="text-sm text-muted-foreground">
-                        Event: {timeline[currentLogIndex].event}
+                      <div className="text-sm text-muted-foreground font-mono">
+                        {timeline[currentLogIndex].event}
                       </div>
                     </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-6">
-                  {/* Raw Text Content */}
-                  {formatRawText(timeline[currentLogIndex].content)}
+                  {/* Snapshot */}
+                  {timeline[currentLogIndex].content ? (
+                    formatSnapshot(timeline[currentLogIndex].content)
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No snapshot recorded
+                    </p>
+                  )}
 
-                  {/* Suggestion Details */}
+                  {/* Suggestion details */}
                   {timeline[currentLogIndex].suggestionData && (
                     <Card className="bg-muted/40">
                       <CardHeader className="pb-3 pt-0">
@@ -690,165 +641,99 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                           Suggestion Details
                         </CardTitle>
                       </CardHeader>
-
                       <CardContent className="space-y-4">
-                        {/* Determine which line was actually shown to user */}
                         {(() => {
-                          const suggestionData =
-                            timeline[currentLogIndex].suggestionData!;
-                          const isShownEvent =
+                          const s = timeline[currentLogIndex].suggestionData!;
+                          const isShown =
                             timeline[currentLogIndex].event ===
                             "SUGGESTION_SHOWN";
-                          const isTabAcceptEvent =
+                          const isAccept =
                             timeline[currentLogIndex].event ===
-                            "SUGGESTION_TAB_ACCEPT";
-                          const isGenerateEvent =
-                            timeline[currentLogIndex].event ===
-                            "SUGGESTION_GENERATE";
-                          const userSawBuggyLine =
-                            suggestionData.shownBug === true;
-                          const userSawCorrectLine =
-                            suggestionData.shownBug === false;
-                          const unknownWhichShown =
-                            suggestionData.shownBug === null;
+                            "SUGGESTION_TAB_CLICKED";
+                          const userSawBug = s.shownBug === true;
+                          const userSawCorrect = s.shownBug === false;
 
                           return (
                             <>
-                              {suggestionData.correctLine && (
+                              {s.correctLine && (
                                 <div>
-                                  <div className="flex items-center space-x-2 mb-2">
+                                  <div className="flex items-center gap-2 mb-2">
                                     <span className="text-sm font-medium text-muted-foreground">
                                       Correct Line:
                                     </span>
-                                    {!isGenerateEvent && userSawCorrectLine && (
-                                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                        <Eye className="size-3" />
-                                        USER SAW THIS
+                                    {userSawCorrect && (
+                                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full flex items-center gap-1">
+                                        <Eye className="size-3" /> USER SAW THIS
                                       </span>
                                     )}
-                                    {isTabAcceptEvent && userSawCorrectLine && (
-                                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                        <CheckCircle className="size-3" />
+                                    {isAccept && userSawCorrect && (
+                                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full flex items-center gap-1">
+                                        <CheckCircle className="size-3" />{" "}
                                         ACCEPTED
-                                      </span>
-                                    )}
-                                    {isTabAcceptEvent && unknownWhichShown && (
-                                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                        <CheckCircle className="size-3" />
-                                        ACCEPTED (assumed correct)
                                       </span>
                                     )}
                                   </div>
                                   <code
-                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                      isGenerateEvent
-                                        ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700"
-                                        : (isShownEvent && userSawBuggyLine) ||
-                                            (isTabAcceptEvent &&
-                                              userSawBuggyLine)
-                                          ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
-                                          : userSawCorrectLine
-                                            ? "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 ring-2 ring-green-200 dark:ring-green-800"
-                                            : isTabAcceptEvent &&
-                                                unknownWhichShown
-                                              ? "bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 ring-2 ring-blue-200 dark:ring-blue-800"
-                                              : "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700"
-                                    }`}
+                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${userSawBug ? "bg-gray-50 dark:bg-gray-950 border-gray-300 text-gray-500" : userSawCorrect ? "bg-green-50 dark:bg-green-950 border-green-300 ring-2 ring-green-200" : "bg-green-50 dark:bg-green-950 border-green-300"}`}
                                   >
-                                    {suggestionData.correctLine}
+                                    {s.correctLine}
                                   </code>
                                 </div>
                               )}
-
-                              {suggestionData.incorrectLine && (
+                              {s.incorrectLine && (
                                 <div>
-                                  <div className="flex items-center space-x-2 mb-2">
+                                  <div className="flex items-center gap-2 mb-2">
                                     <span className="text-sm font-medium text-muted-foreground">
-                                      {isGenerateEvent
-                                        ? "Incorrect Line:"
-                                        : "Incorrect Line (Bug):"}
+                                      Incorrect Line (Bug):
                                     </span>
-                                    {!isGenerateEvent && userSawBuggyLine && (
-                                      <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                        <Eye className="size-3" />
-                                        USER SAW THIS
+                                    {userSawBug && (
+                                      <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full flex items-center gap-1">
+                                        <Eye className="size-3" /> USER SAW THIS
                                       </span>
                                     )}
-                                    {isTabAcceptEvent && userSawBuggyLine && (
-                                      <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 text-xs font-medium rounded-full flex items-center gap-1">
-                                        <AlertTriangle className="size-3" />
+                                    {isAccept && userSawBug && (
+                                      <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 text-xs rounded-full flex items-center gap-1">
+                                        <AlertTriangle className="size-3" />{" "}
                                         ACCEPTED (BUG)
                                       </span>
                                     )}
                                   </div>
                                   <code
-                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${
-                                      isGenerateEvent
-                                        ? "bg-orange-50 dark:bg-orange-950 border-orange-300 dark:border-orange-700"
-                                        : (isShownEvent &&
-                                              userSawCorrectLine) ||
-                                            (isTabAcceptEvent &&
-                                              userSawCorrectLine)
-                                          ? "bg-gray-50 dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-500"
-                                          : userSawBuggyLine
-                                            ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700 ring-2 ring-red-200 dark:ring-red-800"
-                                            : "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700"
-                                    }`}
+                                    className={`block px-3 py-2 text-sm font-mono rounded-lg border ${userSawCorrect ? "bg-gray-50 dark:bg-gray-950 border-gray-300 text-gray-500" : userSawBug ? "bg-red-50 dark:bg-red-950 border-red-300 ring-2 ring-red-200" : "bg-red-50 dark:bg-red-950 border-red-300"}`}
                                   >
-                                    {suggestionData.incorrectLine}
+                                    {s.incorrectLine}
                                   </code>
+                                </div>
+                              )}
+                              {!s.correctLine && !s.incorrectLine && (
+                                <div className="bg-muted border rounded-lg p-3 text-sm text-muted-foreground flex items-center gap-2">
+                                  <AlertTriangle className="size-4" />
+                                  No suggestion line content in database.
+                                </div>
+                              )}
+                              {s.shownBug !== null && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-muted-foreground">
+                                    Bug Shown:
+                                  </span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${s.shownBug ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200" : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"}`}
+                                  >
+                                    {s.shownBug ? (
+                                      <>
+                                        <XCircle className="size-3" /> Yes
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle className="size-3" /> No
+                                      </>
+                                    )}
+                                  </span>
                                 </div>
                               )}
                             </>
                           );
                         })()}
-
-                        {/* Show message if no line content available */}
-                        {!timeline[currentLogIndex].suggestionData!
-                          .correctLine &&
-                          !timeline[currentLogIndex].suggestionData!
-                            .incorrectLine && (
-                            <div className="bg-muted border rounded-lg p-3 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-2">
-                                <AlertTriangle className="size-4" />
-                                <span className="font-medium">Note:</span>
-                                <span>
-                                  No suggestion line content available in
-                                  database.
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                        {timeline[currentLogIndex].suggestionData!.shownBug !==
-                          null && (
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              Bug Shown to User:
-                            </span>
-                            <span
-                              className={`px-2 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
-                                timeline[currentLogIndex].suggestionData!
-                                  .shownBug
-                                  ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
-                                  : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                              }`}
-                            >
-                              {timeline[currentLogIndex].suggestionData!
-                                .shownBug ? (
-                                <>
-                                  <XCircle className="size-3" />
-                                  Yes
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="size-3" />
-                                  No
-                                </>
-                              )}
-                            </span>
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
                   )}

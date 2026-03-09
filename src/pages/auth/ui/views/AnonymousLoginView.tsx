@@ -1,4 +1,4 @@
-import { registerUser } from "@/api/auth";
+import { anonymousAuth } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,10 @@ import ConsentFormViewCheck from "../components/ConsentFormViewCheck";
 const ANONYMOUS_PASSWORD = import.meta.env.VITE_ANONYMOUS_SHARED_PASSWORD;
 
 const AnonymousLoginView = () => {
-  const [mode, setMode] = useState("signin"); // "signin" or "signup"
+  const [mode, setMode] = useState("signin");
   const [username, setUsername] = useState("");
   const [isConsent, setIsConsent] = useState(false);
   const [hasViewedConsent, setHasViewedConsent] = useState(false);
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,34 +27,10 @@ const AnonymousLoginView = () => {
     const newUsername = generateSlug(2, {
       format: "kebab",
       partsOfSpeech: ["adjective", "noun"],
-      categories: {
-        noun: ["animals"],
-      },
+      categories: { noun: ["animals"] },
     });
     setUsername(newUsername);
     setError("");
-  };
-
-  const checkUsernameExists = async (
-    usernameToCheck: string,
-  ): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("first_name")
-        .eq("first_name", usernameToCheck)
-        .limit(1);
-
-      if (error) {
-        console.error("Error checking username:", error);
-        return false;
-      }
-
-      return data && data.length > 0;
-    } catch (err) {
-      console.error("Username check error:", err);
-      return false;
-    }
   };
 
   const handleSignIn = async () => {
@@ -68,13 +43,22 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const email = `${username.trim().toLowerCase()}@anonymous.com`;
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: ANONYMOUS_PASSWORD,
-      });
+      const result = await anonymousAuth("signin", username);
+      if (result.error) {
+        setError(
+          "No account found with this username. Try creating a new one.",
+        );
+        return;
+      }
 
-      if (error) {
+      const email = `${username.trim().toLowerCase()}@anonymous.com`;
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: ANONYMOUS_PASSWORD,
+        });
+
+      if (signInError) {
         setError(
           "No account found with this username. Try creating a new one.",
         );
@@ -82,7 +66,7 @@ const AnonymousLoginView = () => {
       }
 
       if (data) {
-        toast.success("Sign in anonymous successfully!");
+        toast.success("Signed in anonymously!");
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
@@ -103,35 +87,16 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const usernameExists = await checkUsernameExists(username.trim());
-
-      if (usernameExists) {
-        setError(
-          "This username is already taken. Please choose a different one or generate a new one.",
-        );
-        setLoading(false);
+      const result = await anonymousAuth("signup", username, isConsent);
+      if (result.error) {
+        setError(result.error);
         return;
       }
 
       const email = `${username.trim().toLowerCase()}@anonymous.com`;
-
-      const registerResult = await registerUser(
-        username.trim(),
-        "",
-        email,
-        ANONYMOUS_PASSWORD,
-        isConsent,
-      );
-
-      if (registerResult.error) {
-        setError(registerResult.error);
-        return;
-      }
-
-      // Sign in the newly created user
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
-          email: email,
+          email,
           password: ANONYMOUS_PASSWORD,
         });
 
@@ -164,19 +129,9 @@ const AnonymousLoginView = () => {
     setUsername("");
     setIsConsent(false);
     setHasViewedConsent(false);
-
-    // Generate username for signup mode
     if (newMode === "signup") {
       setTimeout(() => generateRandomUsername(), 0);
     }
-  };
-
-  const handleConsentChange = (consented: boolean) => {
-    setIsConsent(consented);
-  };
-
-  const handleConsentViewed = (hasViewed: boolean) => {
-    setHasViewedConsent(hasViewed);
   };
 
   return (
@@ -266,7 +221,7 @@ const AnonymousLoginView = () => {
                   placeholder="e.g. happy-dolphin"
                   value={username}
                   onChange={handleUsernameChange}
-                  className="w-full text-center text-lg font-mono  border-gray-600 placeholder-gray-400 py-6"
+                  className="w-full text-center text-lg font-mono border-gray-600 placeholder-gray-400 py-6"
                   disabled={loading}
                 />
               </div>
@@ -282,11 +237,10 @@ const AnonymousLoginView = () => {
 
               <div className="h-6" />
 
-              {/* Consent Checkbox Component */}
               <ConsentFormViewCheck
                 isConsent={isConsent}
-                onConsentChange={handleConsentChange}
-                onConsentViewed={handleConsentViewed}
+                onConsentChange={setIsConsent}
+                onConsentViewed={setHasViewedConsent}
                 showViewButton={true}
                 disabled={loading}
               />
