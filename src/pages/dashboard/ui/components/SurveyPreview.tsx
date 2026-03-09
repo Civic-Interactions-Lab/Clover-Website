@@ -134,11 +134,6 @@ function QuestionField({
                 >
                   {v}
                 </button>
-                {labels[i] && i !== 0 && (
-                  <span className="text-[10px] text-muted-foreground text-center max-w-[60px] leading-tight">
-                    {labels[i]}
-                  </span>
-                )}
               </div>
             );
           })}

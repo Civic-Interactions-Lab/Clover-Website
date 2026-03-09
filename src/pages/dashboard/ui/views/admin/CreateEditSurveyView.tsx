@@ -94,13 +94,7 @@ const QUESTION_DEFAULTS: Record<QuestionType, Partial<SurveyQuestion>> = {
   long_text: {},
   likert: {
     points: 5,
-    labels: [
-      "Strongly Disagree",
-      "Disagree",
-      "Neutral",
-      "Agree",
-      "Strongly Agree",
-    ],
+    labels: ["Strongly Disagree", "", "", "", "Strongly Agree"],
   },
   rating: { min: 1, max: 10, step: 1 },
   multiple_choice: { options: [] },
@@ -164,25 +158,24 @@ function QuestionConfig({
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label className="block text-sm font-medium mb-2">Labels</Label>
-          <div
-            className="grid gap-2"
-            style={{ gridTemplateColumns: `repeat(${Math.min(pts, 3)}, 1fr)` }}
-          >
-            {Array.from({ length: pts }, (_, i) => (
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: "Left end", index: 0 },
+            { label: "Right end", index: pts - 1 },
+          ].map(({ label, index }) => (
+            <div key={index}>
+              <Label className="block text-sm font-medium mb-2">{label}</Label>
               <Input
-                key={i}
-                value={labels[i] ?? ""}
+                value={labels[index] ?? ""}
                 onChange={(e) => {
                   const next = [...labels];
-                  next[i] = e.target.value;
+                  next[index] = e.target.value;
                   onChange({ ...question, labels: next });
                 }}
-                placeholder={`Label ${i + 1}`}
+                placeholder={label}
               />
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     );
