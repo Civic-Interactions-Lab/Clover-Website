@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient.ts";
+import { getAdminSurvey, updateAdminSurvey } from "@/api/surveys";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -513,18 +514,14 @@ const CreateEditSurveyView = () => {
         } = await supabase.auth.getUser();
         setCurrentUserId(user?.id ?? null);
 
-        const { data, error } = await supabase
-          .from("surveys")
-          .select("*")
-          .eq("id", surveyId)
-          .single<SurveyRow>();
+        const { survey, error } = await getAdminSurvey(surveyId);
+        if (error) throw new Error(error);
+        if (!survey) throw new Error("Survey not found.");
 
-        if (error) throw error;
-
-        setTitle(data.title);
-        setDescription(data.description ?? "");
-        setIsActive(data.is_active);
-        setQuestions((data.questions as SurveyQuestion[]) ?? []);
+        setTitle(survey.title);
+        setDescription(survey.description ?? "");
+        setIsActive(survey.is_active);
+        setQuestions(survey.questions ?? []);
       } catch (err) {
         console.error("Error loading survey:", err);
       } finally {
@@ -553,15 +550,12 @@ const CreateEditSurveyView = () => {
     if (!surveyId) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("surveys")
-        .update({
+      const { error } = await updateAdminSurvey(surveyId, {
           title: title.trim(),
           description: description.trim() || null,
           is_active: isActive,
           questions,
-        })
-        .eq("id", surveyId);
+        });
 
       if (error) throw error;
     } catch (err) {

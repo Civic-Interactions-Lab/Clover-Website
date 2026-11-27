@@ -1,6 +1,7 @@
 import { toCamelCase } from "@/lib/utils";
 import { CONSENT_ENDPOINT } from "./endpoints";
 import { ConsentForm } from "@/types/consent";
+import { apiFetch } from "./request";
 
 interface ConsentFormResponse {
   success: boolean;
@@ -12,7 +13,7 @@ export async function getConsentForm(): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(CONSENT_ENDPOINT, {
+    const response = await apiFetch(CONSENT_ENDPOINT, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

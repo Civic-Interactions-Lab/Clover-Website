@@ -36,7 +36,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getAllUsers } from "@/api/user";
 
 const PAGE_SIZE = 100;
 
@@ -79,33 +79,23 @@ const AdminUserDataView = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.from("users").select(`
-          id,
-          email,
-          first_name,
-          last_name,
-          role,
-          status,
-          pid,
-          user_settings ( mode, bug_percentage )
-        `);
-
+      const { data, error } = await getAllUsers({ page: 1, limit: 1000 });
       if (error) {
-        setError(error.message);
+        setError(error);
         setLoading(false);
         return;
       }
 
-      const mapped: UserRow[] = (data ?? []).map((row: any) => ({
+      const mapped: UserRow[] = (data?.users ?? []).map((row) => ({
         id: row.id,
         email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
+        first_name: row.firstName,
+        last_name: row.lastName,
         role: row.role,
         status: row.status,
-        pid: row.pid,
-        mode: row.user_settings?.mode ?? null,
-        bug_percentage: row.user_settings?.bug_percentage ?? null,
+        pid: row.pid ?? null,
+        mode: row.settings?.mode ?? null,
+        bug_percentage: row.settings?.bugPercentage ?? null,
       }));
 
       setUsers(mapped);

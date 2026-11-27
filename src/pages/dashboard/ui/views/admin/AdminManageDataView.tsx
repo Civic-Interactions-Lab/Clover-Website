@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CustomSelect from "@/components/CustomSelect.tsx";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getAdminTableData } from "@/api/data";
 import {
   useReactTable,
   getCoreRowModel,
@@ -36,7 +36,7 @@ type TableName =
   | "progsnap_event"
   | "progsnap_edit"
   | "progsnap_suggestion_line"
-  | "survey_response"
+  | "survey_responses"
   | "user_settings"
   | "users";
 
@@ -48,7 +48,7 @@ const TABLE_OPTIONS = [
     value: "progsnap_suggestion_line" as TableName,
     label: "Progsnap Suggestion Line",
   },
-  { value: "survey_response" as TableName, label: "Survey Response" },
+  { value: "survey_responses" as TableName, label: "Survey Responses" },
   { value: "user_settings" as TableName, label: "User Settings" },
   { value: "users" as TableName, label: "Users" },
 ];
@@ -77,9 +77,9 @@ const AdminManageDataView = () => {
       setFilterValue("");
       setPageIndex(0);
 
-      const { data, error } = await supabase.from(selectedTable).select("*");
+      const { data, error } = await getAdminTableData(selectedTable);
 
-      if (error) setError(error.message);
+      if (error) setError(error);
       else setRows(data ?? []);
 
       setLoading(false);

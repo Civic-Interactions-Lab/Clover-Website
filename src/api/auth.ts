@@ -1,4 +1,5 @@
 import { AUTH_ENDPOINT } from "@/api/endpoints";
+import { apiFetch } from "./request";
 
 /**
  * Function to log in a user
@@ -92,7 +93,7 @@ export async function checkAndRegisterUser(
   id: string,
 ): Promise<{ error?: string }> {
   try {
-    const response = await fetch(`${AUTH_ENDPOINT}/check`, {
+    const response = await apiFetch(`${AUTH_ENDPOINT}/check`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -123,12 +124,13 @@ export async function anonymousAuth(
   mode: "signin" | "signup",
   code: string,
   isConsent?: boolean,
-): Promise<{ success?: boolean; error?: string }> {
+  studySlug?: string,
+): Promise<{ success?: boolean; userId?: string; error?: string }> {
   try {
     const response = await fetch(`${AUTH_ENDPOINT}/anonymous/${mode}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: code.trim().toLowerCase(), isConsent }),
+      body: JSON.stringify({ code: code.trim().toLowerCase(), isConsent, studySlug }),
     });
 
     const data = await response.json();
@@ -137,10 +139,66 @@ export async function anonymousAuth(
       return { error: data.error ?? "Authentication failed" };
     }
 
-    return { success: true };
+    return {
+      success: true,
+      userId: data.userId,
+    };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Unknown error occurred",
     };
+  }
+}
+
+export async function createStudyHandoff(
+  studySlug: string,
+  accessToken: string,
+): Promise<{ handoffCode?: string; continueUrl?: string; surveyId?: string; error?: string }> {
+  try {
+    const response = await fetch(`${AUTH_ENDPOINT}/anonymous/handoff/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ studySlug }),
+    });
+    const data = await response.json();
+
+    if (response.status === 409 && data.code === "pre_survey_required" && typeof data.surveyId === "string") {
+      return { surveyId: data.surveyId };
+    }
+    if (!response.ok) {
+      return { error: data.error || "Could not continue to the study workspace." };
+    }
+    if (typeof data.handoffCode !== "string" || typeof data.continueUrl !== "string") {
+      return { error: "The study handoff response was incomplete." };
+    }
+    return { handoffCode: data.handoffCode, continueUrl: data.continueUrl };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Could not continue to the study workspace.",
+    };
+  }
+}
+
+export async function createExtensionAPISession(
+  accessToken: string,
+): Promise<{ apiToken?: string; error?: string }> {
+  try {
+    const response = await fetch(`${AUTH_ENDPOINT}/extension-session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const data = await response.json();
+    if (!response.ok || typeof data.apiToken !== "string") {
+      return { error: data.error || "Could not start the Extension session." };
+    }
+    return { apiToken: data.apiToken };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not start the Extension session." };
   }
 }

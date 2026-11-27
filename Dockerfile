@@ -4,6 +4,8 @@ FROM node:23-slim AS builder
 ARG SUPABASE_URL
 ARG SUPABASE_KEY
 ARG BASE_URL
+ARG VITE_SITE_URL
+ARG ANONYMOUS_SHARED_PASSWORD
 
 ENV SUPABASE_URL=${SUPABASE_URL}
 ENV SUPABASE_KEY=${SUPABASE_KEY}
@@ -14,7 +16,7 @@ WORKDIR /app
 
 # Copy package.json and install dependencies
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm ci
 
 # Install Git and clean up apt cache to reduce image size
 RUN apt-get update && \
@@ -24,7 +26,9 @@ RUN apt-get update && \
 # Create .env file with values
 RUN echo "VITE_SUPABASE_URL=${SUPABASE_URL}" >> /app/.env && \
     echo "VITE_SUPABASE_ANON_KEY=${SUPABASE_KEY}" >> /app/.env && \
-    echo "VITE_API_URL=${BASE_URL}" >> /app/.env
+    echo "VITE_API_URL=${BASE_URL}" >> /app/.env && \
+    echo "VITE_SITE_URL=${VITE_SITE_URL}" >> /app/.env && \
+    echo "VITE_ANONYMOUS_SHARED_PASSWORD=${ANONYMOUS_SHARED_PASSWORD}" >> /app/.env
 # Copy the rest of the app and build
 COPY . .
 RUN npm run build

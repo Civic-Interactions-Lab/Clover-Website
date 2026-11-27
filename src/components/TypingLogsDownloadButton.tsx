@@ -1,5 +1,5 @@
 import DownloadFormattedFile from "@/components/DownloadFormattedFile";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getUserTypingExport, type TerminalLogExport, type TypingLogExport } from "@/api/logs";
 import { User } from "@/types/user";
 import { useEffect, useState } from "react";
 
@@ -8,34 +8,6 @@ interface TypingLogsDownloadButtonProps {
   user: User | null;
 }
 
-type TypingLogData = {
-  id: string;
-  created_at: string;
-  raw_text: string;
-  line_suggestion_id: string | null;
-  user_id: string;
-  event: string;
-  line_suggestions?: {
-    id: string;
-    correct_line: string | null;
-    incorrect_line: string | null;
-    shown_bug: boolean | null;
-    bug_percentage: number | null;
-    line_suggestions_group?: {
-      filename: string | null;
-      language: string | null;
-    } | null;
-  } | null;
-};
-
-type TerminalLogData = {
-  id: string;
-  start_time: string;
-  end_time: string;
-  output: string;
-  user_id: string;
-};
-
 const TypingLogsDownloadButton = ({
   userId,
   user,
@@ -43,19 +15,10 @@ const TypingLogsDownloadButton = ({
   const [typingData, setTypingData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const focusEvents = [
-    "TYPING",
-    "SUGGESTION_SHOWN",
-    "SUGGESTION_TAB_ACCEPT",
-    "RUN",
-    "SUGGESTION_LINE_REJECT",
-    "SUGGESTION_GENERATE",
-  ];
-
   // Function to find matching terminal output for a given timestamp
   const findMatchingTerminalOutput = (
     eventTimestamp: string,
-    terminalLogs: TerminalLogData[],
+    terminalLogs: TerminalLogExport[],
   ): string | null => {
     const eventTime = new Date(eventTimestamp).getTime();
 
@@ -78,69 +41,11 @@ const TypingLogsDownloadButton = ({
       setLoading(true);
 
       try {
-        // First, fetch terminal logs for the user
-        const { data: terminalLogsData, error: terminalLogsError } =
-          await supabase
-            .from("terminal_logs")
-            .select("id, start_time, end_time, output, user_id")
-            .eq("user_id", userId)
-            .order("start_time", { ascending: true });
-
-        if (terminalLogsError) {
-          throw terminalLogsError;
-        }
-
-        const terminalLogs = terminalLogsData as TerminalLogData[];
-
-        // Then fetch typing logs
-        const allLogs: TypingLogData[] = [];
-        let from = 0;
-        const batchSize = 1000;
-        let hasMoreData = true;
-
-        while (hasMoreData) {
-          const { data, error } = await supabase
-            .from("typing_log")
-            .select(
-              `
-              id,
-              created_at,
-              raw_text,
-              line_suggestion_id,
-              user_id,
-              event,
-              line_suggestions:line_suggestion_id (
-                id,
-                correct_line,
-                incorrect_line,
-                shown_bug,
-                bug_percentage,
-                line_suggestions_group:group_id (
-                  filename,
-                  language
-                )
-              )
-            `,
-            )
-            .eq("user_id", userId)
-            .in("event", focusEvents)
-            .order("created_at", { ascending: true })
-            .range(from, from + batchSize - 1);
-
-          if (error) {
-            throw error;
-          }
-
-          const logs = data as unknown as TypingLogData[];
-          allLogs.push(...logs);
-
-          hasMoreData = logs.length === batchSize;
-          from += batchSize;
-
-          if (hasMoreData) {
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
-        }
+        const { typingLogs, terminalLogs: terminalData, error } =
+          await getUserTypingExport(userId);
+        if (error) throw new Error(error);
+        const allLogs: TypingLogExport[] = typingLogs ?? [];
+        const terminalLogs = terminalData ?? [];
 
         const formattedData =
           allLogs?.map((log, index) => {

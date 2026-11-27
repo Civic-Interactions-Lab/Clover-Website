@@ -19,9 +19,9 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import ActivityStatsCards from "../components/ActivityStatsCards";
 import { useState, useEffect } from "react";
+import { listAdminSurveys } from "@/api/surveys";
 import NewSurveyDialog from "@/pages/dashboard/ui/components/NewSurveyDialog";
 import CustomSelect from "@/components/CustomSelect";
-import { supabase } from "@/lib/supabaseClient.ts";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -32,7 +32,7 @@ interface AdminProfileViewProps {
 interface Survey {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   created_at: string;
 }
 
@@ -52,11 +52,7 @@ const AdminProfileView = ({ userData }: AdminProfileViewProps) => {
   const fetchSurveys = async () => {
     try {
       setLoadingSurveys(true);
-      const { data, error } = await supabase
-        .from("surveys")
-        .select("id, title, description, created_at")
-        .order("created_at", { ascending: false });
-
+      const { surveys: data, error } = await listAdminSurveys();
       if (error) throw error;
 
       setSurveys(data || []);

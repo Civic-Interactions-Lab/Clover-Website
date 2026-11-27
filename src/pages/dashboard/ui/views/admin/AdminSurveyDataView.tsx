@@ -1,5 +1,10 @@
-import { supabase } from "@/lib/supabaseClient.ts";
 import { useState, useEffect, useMemo } from "react";
+import {
+  getAdminSurvey,
+  listAdminSurveyResponses,
+  listAdminSurveys,
+  type AdminSurveyResponse,
+} from "@/api/surveys";
 import SurveyResult from "../../components/SurveyResult";
 import {
   Table,
@@ -37,22 +42,6 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 100;
 
-type SurveyResponse = {
-  id: string;
-  created_at: string;
-  answers: { questionId: string; value: string }[];
-  survey: {
-    title: string | null;
-    description: string | null;
-    id?: string;
-  } | null;
-  user: {
-    id: string;
-    first_name: string | null;
-    pid?: string | null;
-  } | null;
-};
-
 type Survey = {
   id: string;
   title: string | null;
@@ -79,7 +68,7 @@ interface ResponseRow {
   pid: string;
   created_at: string;
   user_id: string;
-  raw: SurveyResponse;
+  raw: AdminSurveyResponse;
 }
 
 type FilterCol = "survey_title" | "user_name" | "pid";
@@ -92,7 +81,7 @@ const FILTER_OPTIONS: { value: FilterCol; label: string }[] = [
 
 const AdminSurveyDataView = () => {
   const navigate = useNavigate();
-  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
+  const [surveyResponses, setSurveyResponses] = useState<AdminSurveyResponse[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("table");
@@ -110,32 +99,26 @@ const AdminSurveyDataView = () => {
 
   useEffect(() => {
     const loadSurveys = async () => {
-      const { data, error } = await supabase
-        .from("surveys")
-        .select("id, title, description, is_active, created_at");
-      if (!error) setSurveys(data ?? []);
+      const { surveys: data, error } = await listAdminSurveys();
+      if (error) {
+        console.error("Could not load surveys:", error);
+        return;
+      }
+      setSurveys(data ?? []);
     };
     loadSurveys();
   }, []);
 
   useEffect(() => {
     const loadResponses = async () => {
-      let query = supabase.from("survey_responses").select(`
-        id, created_at, answers,
-        survey:survey_id ( id, title, description ),
-        user:user_id ( id, first_name, pid )
-      `);
-      if (selectedSurveyId !== "all")
-        query = query.eq("survey_id", selectedSurveyId);
-      const { data, error } = await query;
-      if (error) return;
-      setSurveyResponses(
-        (data ?? []).map((r: any) => ({
-          ...r,
-          survey: Array.isArray(r.survey) ? r.survey[0] : r.survey,
-          user: Array.isArray(r.user) ? r.user[0] : r.user,
-        })),
+      const { responses, error } = await listAdminSurveyResponses(
+        selectedSurveyId === "all" ? undefined : selectedSurveyId,
       );
+      if (error) {
+        console.error("Could not load survey responses:", error);
+        return;
+      }
+      setSurveyResponses(responses ?? []);
       setPageIndex(0);
     };
     loadResponses();
@@ -144,23 +127,23 @@ const AdminSurveyDataView = () => {
   const loadSurveyForResults = async (surveyId: string) => {
     setLoadingResults(true);
     try {
-      // questions are embedded in the surveys row
-      const { data: surveyData, error: surveyError } = await supabase
-        .from("surveys")
-        .select("*")
-        .eq("id", surveyId)
-        .single();
-      if (surveyError) throw surveyError;
+      const [{ survey, error: surveyError }, { responses, error: responsesError }] =
+        await Promise.all([
+          getAdminSurvey(surveyId),
+          listAdminSurveyResponses(surveyId),
+        ]);
+      if (surveyError) throw new Error(surveyError);
+      if (responsesError) throw new Error(responsesError);
+      if (!survey) throw new Error("Survey not found.");
 
-      const { data: responsesData, error: responsesError } = await supabase
-        .from("survey_responses")
-        .select("*")
-        .eq("survey_id", surveyId)
-        .order("created_at", { ascending: false });
-      if (responsesError) throw responsesError;
-
-      setSelectedSurvey(surveyData);
-      setResultResponses(responsesData ?? []);
+      setSelectedSurvey(survey);
+      setResultResponses((responses ?? []).map(({ id, survey_id, user_id, submitted_at, answers }) => ({
+        id,
+        survey_id,
+        user_id,
+        submitted_at,
+        answers,
+      })));
     } catch (err) {
       console.error(err);
     } finally {

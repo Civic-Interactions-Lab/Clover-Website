@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomSelect from "@/components/CustomSelect.tsx";
 import { useUser } from "@/context/UserContext";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getUserDataExport } from "@/api/data";
 import {
   useReactTable,
   getCoreRowModel,
@@ -327,84 +327,27 @@ const StudentLogsView = () => {
 
   const [activeTab, setActiveTab] = useState("events");
 
-  // ── Fetch log_event ──
-  const fetchLogs = async () => {
+  const fetchActivity = async () => {
     if (!userData?.id) return;
-    const { data, error } = await supabase
-      .from("log_event")
-      .select(
-        "id, event, client_timestamp, server_timestamp, snapshot, line_suggestion_id, run_id",
-      )
-      .eq("user_id", userData.id)
-      .order("client_timestamp", { ascending: false });
-    if (error) {
-      console.error(error);
-      setLogsLoading(false);
-      return;
-    }
-    setLogs((data ?? []) as LogRow[]);
-    setLogsLoading(false);
-  };
-
-  // ── Fetch progsnap_event ──
-  const fetchProgsnap = async () => {
-    if (!userData?.id) return;
-    const { data, error } = await supabase
-      .from("progsnap_event")
-      .select(
-        "id, event_type, client_timestamp, server_timestamp, code_snippet, file_name, language, context_id",
-      )
-      .eq("user_id", userData.id)
-      .order("server_timestamp", { ascending: false });
+    setLogsLoading(true);
+    setProgsnapLoading(true);
+    const { data, error } = await getUserDataExport(userData.id);
     if (error) {
       console.error(error);
       setProgsnapLoading(false);
+      setLogsLoading(false);
       return;
     }
-    setProgsnap((data ?? []) as ProgsnapRow[]);
+    setLogs((data?.log_event ?? []) as unknown as LogRow[]);
+    setProgsnap((data?.progsnap_event ?? []) as unknown as ProgsnapRow[]);
+    setLogsLoading(false);
     setProgsnapLoading(false);
   };
 
   useEffect(() => {
-    fetchLogs();
-    fetchProgsnap();
-  }, [userData?.id]);
-
-  // ── Realtime: both tables on one channel ──
-  useEffect(() => {
-    if (!userData?.id) return;
-
-    const channel = supabase
-      .channel(`student-logs-realtime-${userData.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "log_event",
-          filter: `user_id=eq.${userData.id}`,
-        },
-        () => fetchLogs(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "progsnap_event",
-          filter: `user_id=eq.${userData.id}`,
-        },
-        () => fetchProgsnap(),
-      )
-      .subscribe((status, err) => {
-        if (status === "SUBSCRIBED")
-          console.log("[Realtime] Student logs connected");
-        else if (err) console.error("[Realtime] Error:", err.message);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    fetchActivity();
+    const refresh = window.setInterval(fetchActivity, 30_000);
+    return () => window.clearInterval(refresh);
   }, [userData?.id]);
 
   // ── log_event columns ──

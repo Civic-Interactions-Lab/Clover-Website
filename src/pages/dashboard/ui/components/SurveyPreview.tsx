@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { submitParticipantSurvey } from "@/api/surveys";
 import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,6 +58,7 @@ interface SurveyPreviewProps {
   onSuccess?: () => void;
   readOnly?: boolean;
   initialAnswers?: Record<string, string>;
+  onSubmit?: (answers: Record<string, string>) => Promise<void>;
 }
 
 // ── Question field ────────────────────────────────────────────────────────────
@@ -307,6 +308,7 @@ const SurveyPreview = ({
   onSuccess,
   readOnly = false,
   initialAnswers = {},
+  onSubmit,
 }: SurveyPreviewProps) => {
   const [answers, setAnswers] =
     useState<Record<string, string>>(initialAnswers);
@@ -354,19 +356,16 @@ const SurveyPreview = ({
       setSubmitting(true);
       toast.warning("Submitting survey...");
 
-      const { error } = await supabase.from("survey_responses").insert([
-        {
-          survey_id: survey.id,
-          user_id: userId,
-          submitted_at: new Date().toISOString(),
-          answers: Object.entries(answers).map(([questionId, value]) => ({
-            questionId,
-            value,
-          })),
-        },
-      ]);
-
-      if (error) throw error;
+      if (onSubmit) {
+        await onSubmit(answers);
+      } else {
+        const { error } = await submitParticipantSurvey(
+          survey.id,
+          Object.entries(answers).map(([questionId, value]) => ({ questionId, value })),
+          userId,
+        );
+        if (error) throw new Error(error);
+      }
 
       setSubmitted(true);
       toast.success("Survey submitted successfully!");

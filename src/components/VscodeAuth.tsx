@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { handleAuthRedirect } from "../utils/handleAuth";
+import { createExtensionAPISession } from "../api/auth";
 
 export default function VSCodeAuthCallback() {
   const called = useRef(false);
@@ -8,8 +9,13 @@ export default function VSCodeAuthCallback() {
     called.current = true;
 
     handleAuthRedirect({
-      onComplete: (userId) => {
-        window.location.href = `vscode://capstone-team-2.tu-clover/auth-complete?id=${userId}`;
+      onComplete: async (userId, accessToken) => {
+        const { apiToken, error } = await createExtensionAPISession(accessToken);
+        if (error || !apiToken) {
+          console.error("VSCode API session failed:", error);
+          return;
+        }
+        window.location.href = `vscode://capstone-team-2.tu-clover/auth-complete?id=${encodeURIComponent(userId)}&apiToken=${encodeURIComponent(apiToken)}`;
       },
       onError: (message) => {
         console.error("VSCode Auth Failed:", message);

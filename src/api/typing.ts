@@ -2,6 +2,7 @@
 
 import { UserMode } from "@/types/user";
 import { LOG_ENDPOINT } from "./endpoints";
+import { apiFetch } from "./request";
 
 /**
  * Individual typing log entry
@@ -70,7 +71,7 @@ export async function getTypingLogs({
       interval_count: intervalCount.toString(),
     });
 
-    const response = await fetch(
+    const response = await apiFetch(
       `${LOG_ENDPOINT}/typing/${userId}?${params.toString()}`,
       {
         method: "GET",

@@ -5,7 +5,7 @@ export async function handleAuthRedirect({
   onComplete,
   onError,
 }: {
-  onComplete: (userId: string) => void;
+  onComplete: (userId: string, accessToken: string) => void;
   onError?: (message: string) => void;
 }) {
   const hash = window.location.hash.substring(1);
@@ -69,5 +69,5 @@ export async function handleAuthRedirect({
     return;
   }
 
-  onComplete(userId);
+  onComplete(userId, accessToken);
 }

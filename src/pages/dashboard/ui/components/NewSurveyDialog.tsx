@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { createAdminSurvey } from "@/api/surveys";
 import {
   Dialog,
   DialogContent,
@@ -53,32 +53,17 @@ const NewSurveyDialog = ({ open, onOpenChange, onSurveyCreated }: Props) => {
     try {
       setIsCreating(true);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error("Authentication required to create survey");
-        return;
-      }
-
-      const { data: surveyData, error } = await supabase
-        .from("surveys")
-        .insert([
-          {
-            title: formData.title.trim(),
-            description: formData.description.trim() || null,
-            is_active: formData.is_active,
-            questions: [],
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const { survey, error } = await createAdminSurvey({
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        is_active: formData.is_active,
+        questions: [],
+      });
+      if (error) throw new Error(error);
+      if (!survey) throw new Error("The API did not return the created survey.");
 
       onOpenChange(false);
-      onSurveyCreated?.(surveyData.id);
+      onSurveyCreated?.(survey.id);
       resetForm();
     } catch (error: any) {
       console.error("Error creating survey:", error);

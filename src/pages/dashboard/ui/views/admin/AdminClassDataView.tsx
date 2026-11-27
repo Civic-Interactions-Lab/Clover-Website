@@ -32,7 +32,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getAllClasses } from "@/api/classes";
 
 const PAGE_SIZE = 100;
 
@@ -76,37 +76,24 @@ const AdminClassDataView = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.from("classes").select(`
-          id,
-          class_title,
-          class_code,
-          class_hex_color,
-          class_image_cover,
-          class_description,
-          instructor_id,
-          users!classes_instructor_id_fkey ( first_name, last_name ),
-          user_class ( count )
-        `);
-
+      const { data, error } = await getAllClasses({ page: 1, limit: 1000 });
       if (error) {
-        setError(error.message);
+        setError(error);
         setLoading(false);
         return;
       }
 
-      const mapped: ClassRow[] = (data ?? []).map((row: any) => ({
+      const mapped: ClassRow[] = (data?.classes ?? []).flatMap((row) => row.id ? [{
         id: row.id,
-        class_title: row.class_title ?? "",
-        class_code: row.class_code ?? "",
-        class_hex_color: row.class_hex_color,
-        class_image_cover: row.class_image_cover,
-        class_description: row.class_description,
-        instructor_id: row.instructor_id,
-        instructor_name: row.users
-          ? `${row.users.first_name ?? ""} ${row.users.last_name ?? ""}`.trim()
-          : "Unknown",
-        student_count: row.user_class?.[0]?.count ?? 0,
-      }));
+        class_title: row.classTitle ?? "",
+        class_code: row.classCode ?? "",
+        class_hex_color: row.classHexColor,
+        class_image_cover: row.classImageCover ?? null,
+        class_description: row.classDescription ?? null,
+        instructor_id: row.instructorId ?? "",
+        instructor_name: row.instructorName ?? "Unknown",
+        student_count: row.studentCount ?? 0,
+      }] : []);
 
       setClasses(mapped);
       setLoading(false);

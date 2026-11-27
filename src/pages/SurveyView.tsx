@@ -6,6 +6,9 @@ import SurveyPreview, {
 } from "./dashboard/ui/components/SurveyPreview";
 import { supabase } from "@/lib/supabaseClient.ts";
 import { AlertTriangle, CheckCircle } from "lucide-react";
+import { BASE_ENDPOINT } from "@/api/endpoints";
+import { createStudyHandoff } from "@/api/auth";
+import { Button } from "@/components/ui/button";
 
 const SurveyView = () => {
   const [survey, setSurvey] = useState<Survey | null>(null);
@@ -13,10 +16,13 @@ const SurveyView = () => {
   const [loading, setLoading] = useState(true);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [continuing, setContinuing] = useState(false);
+  const [continueError, setContinueError] = useState("");
 
   const urlParams = new URLSearchParams(window.location.search);
   const surveyId = urlParams.get("surveyId");
   const userId = urlParams.get("userId");
+  const studySlug = urlParams.get("studySlug");
 
   useEffect(() => {
     if (surveyId && userId) {
@@ -29,40 +35,19 @@ const SurveyView = () => {
   const loadSurveyAndUser = async () => {
     try {
       setLoading(true);
-
-      // Survey now has questions embedded as JSONB — single query
-      const { data: surveyData, error: surveyError } = await supabase
-        .from("surveys")
-        .select("*")
-        .eq("id", surveyId)
-        .single();
-
-      if (surveyError) throw surveyError;
-
-      // Load user data
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id, first_name, pid")
-        .eq("id", userId)
-        .single();
-
-      if (userError) throw userError;
-
-      // questions are already embedded in surveyData.questions
-      setSurvey(surveyData);
-      setUser(userData);
-
-      // Check if user already submitted
-      const { data: existingResponse } = await supabase
-        .from("survey_responses")
-        .select("id")
-        .eq("survey_id", surveyId)
-        .eq("user_id", userId)
-        .single();
-
-      if (existingResponse) {
-        setAlreadySubmitted(true);
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) {
+        throw new Error("Sign in to complete this survey.");
       }
+      const response = await fetch(
+        `${BASE_ENDPOINT}/survey/${encodeURIComponent(surveyId!)}/participant?userId=${encodeURIComponent(userId!)}`,
+        { headers: { Authorization: `Bearer ${data.session.access_token}` } },
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not load the survey.");
+      setSurvey(result.survey as Survey);
+      setUser(result.user as Participant);
+      setAlreadySubmitted(result.alreadySubmitted === true);
     } catch (error) {
       console.error("Error loading survey and user data:", error);
     } finally {
@@ -72,6 +57,59 @@ const SurveyView = () => {
 
   const handleSuccess = () => {
     setShowSuccess(true);
+    if (studySlug) void continueToStudy();
+  };
+
+  const continueToStudy = async () => {
+    if (!studySlug) return;
+    setContinuing(true);
+    setContinueError("");
+    try {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) {
+        throw new Error("Sign in again to continue to the study workspace.");
+      }
+      const handoff = await createStudyHandoff(studySlug, data.session.access_token);
+      if (handoff.error) throw new Error(handoff.error);
+      if (handoff.surveyId) {
+        throw new Error("The pre-survey response is not recorded yet. Submit it again to continue.");
+      }
+      if (!handoff.handoffCode || !handoff.continueUrl) {
+        throw new Error("The study handoff response was incomplete.");
+      }
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = handoff.continueUrl;
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "handoffCode";
+      input.value = handoff.handoffCode;
+      form.append(input);
+      document.body.append(form);
+      form.submit();
+    } catch (error) {
+      setContinueError(error instanceof Error ? error.message : "Could not start the workspace.");
+      setContinuing(false);
+    }
+  };
+
+  const submitSurvey = async (answers: Record<string, string>) => {
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !data.session?.access_token) {
+      throw new Error("Sign in to complete this survey.");
+    }
+    const response = await fetch(`${BASE_ENDPOINT}/survey/${encodeURIComponent(surveyId!)}/responses`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify({
+        answers: Object.entries(answers).map(([questionId, value]) => ({ questionId, value })),
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Failed to submit survey.");
   };
 
   if (loading) {
@@ -151,6 +189,14 @@ const SurveyView = () => {
                 ? "You have already submitted a response for this survey."
                 : "Thank you for completing the survey. Your response has been recorded."}
             </p>
+            {studySlug && (
+              <div className="mt-6 space-y-3">
+                {continueError && <p role="alert" className="text-destructive">{continueError}</p>}
+                <Button onClick={() => void continueToStudy()} disabled={continuing}>
+                  {continuing ? "Starting workspace..." : "Continue to workspace"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -164,6 +210,7 @@ const SurveyView = () => {
         user={user}
         userId={userId}
         onSuccess={handleSuccess}
+        onSubmit={submitSurvey}
       />
     </div>
   );

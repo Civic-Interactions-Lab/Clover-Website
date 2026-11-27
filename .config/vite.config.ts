@@ -5,7 +5,15 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 import { execSync } from "child_process";
 import pkg from "../package.json";
 
-const commitHash = execSync("git rev-parse --short HEAD").toString().trim();
+const commitHash = (() => {
+  try {
+    return execSync("git rev-parse --short HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+    }).toString().trim();
+  } catch {
+    return process.env.VITE_COMMIT_HASH || "local";
+  }
+})();
 const version = pkg.version;
 
 // https://vite.dev/config/
@@ -20,11 +28,6 @@ export default defineConfig({
           src: "CNAME",
           dest: ".",
         },
-        {
-          src: "dist/index.html",
-          dest: ".",
-          rename: "404.html",
-        },
       ],
     }),
   ],
@@ -33,9 +36,9 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(version),
   },
   server: {
-    host: "0.0.0.0",
+    host: "::",
     port: 5173,
-    allowedHosts: ["clover.nickrucinski.com"], // Allow your domain
+    allowedHosts: ["clover.nickrucinski.com", "clovercode.test", "127.0.0.1.nip.io"], // Allow your domain and local study preview
   },
   resolve: {
     alias: {

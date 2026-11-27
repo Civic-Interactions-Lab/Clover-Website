@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getCompletedSurvey } from "@/api/surveys";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import SurveyPreview, { Participant, Survey } from "./SurveyPreview";
@@ -21,40 +21,21 @@ const CompletedSurveyView = () => {
       try {
         setLoading(true);
 
-        // 1. Load survey — questions are embedded JSONB
-        const { data: surveyData, error: surveyError } = await supabase
-          .from("surveys")
-          .select("id, title, description, is_active, created_at, questions")
-          .eq("id", surveyId)
-          .single();
+        const { survey, user: participant, answers, error } =
+          await getCompletedSurvey(surveyId, userId);
+        if (error) throw new Error(error);
+        if (!survey || !participant) throw new Error("Survey response not found.");
 
-        if (surveyError) throw surveyError;
-
-        // 2. Load participant
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id, first_name, pid")
-          .eq("id", userId)
-          .single();
-
-        if (userError) throw userError;
-
-        // 3. Load their survey response
-        const { data: responseData, error: responseError } = await supabase
-          .from("survey_responses")
-          .select("answers")
-          .eq("survey_id", surveyId)
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (responseError) throw responseError;
-
-        setSurvey(surveyData as Survey);
-        setUser(userData as Participant);
+        setSurvey(survey as Survey);
+        setUser({
+          id: participant.id,
+          first_name: participant.first_name ?? "",
+          pid: participant.pid ?? "",
+        });
 
         // Convert [{ questionId, value }] array to Record<string, string>
         const answersArray: { questionId: string; value: string }[] =
-          responseData?.answers ?? [];
+          answers ?? [];
         const answersMap: Record<string, string> = {};
         answersArray.forEach(({ questionId, value }) => {
           answersMap[questionId] = value;

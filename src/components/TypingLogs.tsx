@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { getUserTypingTimeline } from "@/api/logs";
+import { getUserData } from "@/api/user";
 import { User } from "@/types/user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CustomSelect from "@/components/CustomSelect";
@@ -32,7 +33,7 @@ import {
 type LogEventData = {
   id: string;
   client_timestamp: number;
-  snapshot: string;
+  snapshot: string | null;
   line_suggestion_id: string | null;
   user_id: string;
   event: string;
@@ -104,12 +105,9 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
     const fetchUser = async () => {
       if (!userId) return;
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", userId)
-          .single();
-        if (error) throw error;
+        const { data, error } = await getUserData(userId);
+        if (error) throw new Error(error);
+        if (!data) throw new Error("User not found.");
         setCurrentUser(data as User);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch user");
@@ -142,37 +140,20 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
           `Fetching batch ${currentBatch}... (${totalFetched.toLocaleString()} records so far)`,
         );
 
-        const { data, error } = await supabase
-          .from("log_event")
-          .select(
-            `
-            id,
-            client_timestamp,
-            snapshot,
-            line_suggestion_id,
-            user_id,
-            event,
-            line_suggestions:line_suggestion_id (
-              id,
-              correct_line,
-              incorrect_line,
-              shown_bug
-            )
-          `,
-          )
-          .eq("user_id", userId)
-          .in("event", focusEvents)
-          .order("client_timestamp", { ascending: true })
-          .range(from, from + batchSize - 1);
+        const { logs, hasMore, error } = await getUserTypingTimeline(
+          userId,
+          from,
+          batchSize,
+          focusEvents,
+        );
+        if (error) throw new Error(error);
 
-        if (error) throw error;
-
-        const logs = data as unknown as LogEventData[];
-        allLogs.push(...logs);
-        totalFetched += logs.length;
+        const currentLogs = logs ?? [];
+        allLogs.push(...currentLogs);
+        totalFetched += currentLogs.length;
         setTotalRecordsFound(totalFetched);
 
-        hasMoreData = logs.length === batchSize;
+        hasMoreData = hasMore ?? false;
         from += batchSize;
 
         if (hasMoreData) {

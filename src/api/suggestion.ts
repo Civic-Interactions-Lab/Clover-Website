@@ -6,6 +6,7 @@ import {
 import { AI_SUGGESTION_ENDPOINT, LOG_ENDPOINT } from "./endpoints";
 import { UserMode } from "../types/user";
 import { MODE_CONFIG } from "@/types/mode";
+import { apiFetch } from "./request";
 
 /**
  * Fetches a suggestion by its ID.
@@ -23,7 +24,7 @@ export async function getSuggestionByModeAndId(
   }
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${AI_SUGGESTION_ENDPOINT}/${config.route}/${config.getId(logItem)}`,
       {
         method: "GET",
@@ -99,7 +100,7 @@ export async function getUserDiffsByTime(
       end: endTime,
     });
     url.search = queryParams.toString();
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });

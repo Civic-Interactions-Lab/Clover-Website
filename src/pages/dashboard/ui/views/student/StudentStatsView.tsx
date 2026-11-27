@@ -4,8 +4,9 @@ import ClassesDropdownMenu from "@/pages/dashboard/ui/components/ClassesDropdown
 import Loading from "@/components/Loading";
 import { useLocation, useNavigate } from "react-router-dom";
 import ActivityStatsSection from "../../components/ActivityStatsSection";
-import { EnrollmentStatus, UserRole } from "@/types/user";
-import { supabase } from "@/lib/supabaseClient.ts";
+import { EnrollmentStatus, UserMode, UserRole } from "@/types/user";
+import { getClassesbyStudent } from "@/api/classes";
+import { getUserActivity } from "@/api/user";
 import {
   calculateProgress,
   getEmptyProgressData,
@@ -38,21 +39,7 @@ const StudentStatsView = ({ description }: { description?: string }) => {
     if (!userData?.id) return;
 
     const fetchClasses = async () => {
-      const { data, error } = await supabase
-        .from("user_class")
-        .select(
-          `
-          enrollment_status,
-          classes (
-            id,
-            class_title,
-            class_code,
-            class_hex_color
-          )
-        `,
-        )
-        .eq("student_id", userData.id)
-        .eq("enrollment_status", EnrollmentStatus.ENROLLED);
+      const { data, error } = await getClassesbyStudent(userData.id);
 
       if (error) {
         console.error(error);
@@ -61,12 +48,12 @@ const StudentStatsView = ({ description }: { description?: string }) => {
       }
 
       const enrolled = (data ?? [])
-        .filter((row: any) => row.classes)
-        .map((row: any) => ({
-          id: row.classes.id,
-          classTitle: row.classes.class_title,
-          classCode: row.classes.class_code,
-          classHexColor: row.classes.class_hex_color,
+        .filter((row) => row.enrollmentStatus === EnrollmentStatus.ENROLLED)
+        .map((row) => ({
+          id: row.id,
+          classTitle: row.classTitle,
+          classCode: row.classCode,
+          classHexColor: row.classHexColor,
           students: [],
         }));
 
@@ -101,27 +88,7 @@ const StudentStatsView = ({ description }: { description?: string }) => {
   const fetchLogs = async () => {
     if (!userData?.id) return;
 
-    const { data, error } = await supabase
-      .from("line_suggestions_log")
-      .select(
-        `
-        id,
-        created_at,
-        event,
-        duration,
-        class_id,
-        line_suggestion_id,
-        line_suggestions (
-          id,
-          shown_bug,
-          correct_line,
-          incorrect_line,
-          bug_percentage
-        )
-      `,
-      )
-      .eq("user_id", userData.id)
-      .order("created_at", { ascending: false });
+    const { logs, error } = await getUserActivity(userData.id, UserMode.LINE_BY_LINE);
 
     if (error) {
       console.error(error);
@@ -129,35 +96,7 @@ const StudentStatsView = ({ description }: { description?: string }) => {
       return;
     }
 
-    const mapped: UserActivityLogItem[] = (data ?? []).map(
-      (row: any) =>
-        ({
-          id: row.id,
-          createdAt: row.created_at,
-          event: row.event,
-          duration: row.duration,
-          userId: userData.id,
-          classId: row.class_id ?? undefined,
-          lineSuggestionId: row.line_suggestion_id,
-          hasBug: row.line_suggestions?.shown_bug ?? false,
-          suggestions: {
-            id: row.line_suggestions?.id ?? "",
-            createdAt: row.created_at,
-            hasBug: row.line_suggestions?.shown_bug ?? false,
-            shownBug: row.line_suggestions?.shown_bug ?? false,
-            correctLine: row.line_suggestions?.correct_line ?? "",
-            incorrectLine: row.line_suggestions?.incorrect_line ?? "",
-            lineIndex: row.line_suggestions?.line_index ?? undefined,
-            suggestions: [],
-            prompt: "",
-            duration: row.duration,
-            model: "",
-            vendor: "",
-          },
-        }) as UserActivityLogItem,
-    );
-
-    setRawLogs(mapped);
+    setRawLogs(logs ?? []);
     setLoading(false);
   };
 
@@ -169,27 +108,8 @@ const StudentStatsView = ({ description }: { description?: string }) => {
   useEffect(() => {
     if (!isRealtimeEnabled || !userData?.id) return;
 
-    const channel = supabase
-      .channel(`student-stats-realtime-${userData.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "line_suggestions_log",
-          filter: `user_id=eq.${userData.id}`,
-        },
-        () => fetchLogs(),
-      )
-      .subscribe((status, err) => {
-        if (status === "SUBSCRIBED")
-          console.log("[Realtime] Student stats connected");
-        else if (err) console.error("[Realtime] Error:", err.message);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const refresh = window.setInterval(fetchLogs, 30_000);
+    return () => window.clearInterval(refresh);
   }, [isRealtimeEnabled, userData?.id]);
 
   // ── Filter by selected class ──

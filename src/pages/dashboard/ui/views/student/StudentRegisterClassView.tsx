@@ -5,8 +5,8 @@ import { BookOpen, Calendar, Flame } from "lucide-react";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient.ts";
 import { ClassData } from "@/types/user";
+import { getAllClasses } from "@/api/classes";
 
 interface StudentRegisterClassViewProps {
   description?: string;
@@ -22,17 +22,7 @@ const StudentRegisterClassView = ({
   const fetchClasses = async () => {
     if (!userData?.id) return;
 
-    const { data, error } = await supabase.from("classes").select(`
-        id,
-        class_title,
-        class_code,
-        class_hex_color,
-        class_image_cover,
-        class_description,
-        instructor_id,
-        created_at,
-        user_class ( student_id, enrollment_status )
-      `);
+    const { data, error } = await getAllClasses({ page: 1, limit: 1000, userId: userData.id });
 
     if (error) {
       console.error(error);
@@ -40,52 +30,16 @@ const StudentRegisterClassView = ({
       return;
     }
 
-    const mapped: ClassData[] = (data ?? []).map((row: any) => {
-      const myEnrollment = row.user_class?.find(
-        (uc: any) => uc.student_id === userData.id,
-      );
-      return {
-        id: row.id,
-        classTitle: row.class_title,
-        classCode: row.class_code,
-        classHexColor: row.class_hex_color,
-        classImageCover: row.class_image_cover,
-        classDescription: row.class_description,
-        instructorId: row.instructor_id,
-        createdAt: row.created_at,
-        enrollmentStatus: myEnrollment?.enrollment_status ?? null,
-        studentCount: row.user_class?.length ?? 0,
-      };
-    });
-
-    setClasses(mapped);
+    setClasses((data?.classes ?? []) as ClassData[]);
     setIsLoading(false);
   };
 
   useEffect(() => {
     fetchClasses();
-
-    const channel = supabase
-      .channel("register_classes_realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "classes" },
-        () => fetchClasses(),
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "user_class",
-          filter: `student_id=eq.${userData?.id}`,
-        },
-        () => fetchClasses(),
-      )
-      .subscribe();
+    const refresh = window.setInterval(fetchClasses, 30_000);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(refresh);
     };
   }, [userData?.id]);
 

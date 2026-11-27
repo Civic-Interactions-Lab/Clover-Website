@@ -1,10 +1,10 @@
-import { anonymousAuth } from "@/api/auth";
+import { anonymousAuth, createStudyHandoff } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabaseClient.ts";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { generateSlug } from "random-word-slugs";
@@ -22,6 +22,59 @@ const AnonymousLoginView = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const studySlug = new URLSearchParams(window.location.search).get("studySlug") || undefined;
+  const localSiteUrl = import.meta.env.VITE_SITE_URL || "http://clovercode.test";
+
+  useEffect(() => {
+    const current = new URL(window.location.href);
+    if (
+      studySlug &&
+      current.port === "5173" &&
+      (current.hostname === "localhost" || current.hostname === "127.0.0.1")
+    ) {
+      const canonical = new URL(localSiteUrl);
+      current.protocol = canonical.protocol;
+      current.host = canonical.host;
+      window.location.replace(current.toString());
+    }
+  }, [studySlug, localSiteUrl]);
+
+  const continueToStudy = async (userId: string) => {
+    if (!studySlug) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !data.session?.access_token) {
+      setError("Sign in again to continue to the study workspace.");
+      return;
+    }
+
+    const handoff = await createStudyHandoff(studySlug, data.session.access_token);
+    if (handoff.error) {
+      setError(handoff.error);
+      return;
+    }
+    if (handoff.surveyId) {
+      const params = new URLSearchParams({ surveyId: handoff.surveyId, userId, studySlug });
+      navigate(`/survey?${params.toString()}`, { replace: true });
+      return;
+    }
+    if (!handoff.handoffCode || !handoff.continueUrl) {
+      setError("Could not continue to the study workspace. Try signing in again.");
+      return;
+    }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = handoff.continueUrl;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "handoffCode";
+    input.value = handoff.handoffCode;
+    form.append(input);
+    document.body.append(form);
+    form.submit();
+  };
 
   const generateRandomUsername = (): void => {
     const newUsername = generateSlug(2, {
@@ -43,7 +96,7 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const result = await anonymousAuth("signin", username);
+      const result = await anonymousAuth("signin", username, undefined, studySlug);
       if (result.error) {
         setError(
           "No account found with this username. Try creating a new one.",
@@ -66,8 +119,16 @@ const AnonymousLoginView = () => {
       }
 
       if (data) {
-        toast.success("Signed in anonymously!");
-        navigate("/dashboard", { replace: true });
+        if (studySlug) {
+          if (result.userId && data.user?.id !== result.userId) {
+            setError("Could not verify your participant account. Sign in again.");
+            return;
+          }
+          await continueToStudy(data.user!.id);
+        } else {
+          toast.success("Signed in anonymously!");
+          navigate("/dashboard", { replace: true });
+        }
       }
     } catch (err) {
       console.error("Anonymous sign in error:", err);
@@ -87,7 +148,7 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const result = await anonymousAuth("signup", username, isConsent);
+      const result = await anonymousAuth("signup", username, isConsent, studySlug);
       if (result.error) {
         setError(result.error);
         return;
@@ -106,8 +167,16 @@ const AnonymousLoginView = () => {
       }
 
       if (data) {
-        toast.success("Anonymous account created successfully!");
-        navigate("/dashboard", { replace: true });
+        if (studySlug) {
+          if (result.userId && data.user?.id !== result.userId) {
+            setError("Could not verify your participant account. Sign in again.");
+            return;
+          }
+          await continueToStudy(data.user!.id);
+        } else {
+          toast.success("Anonymous account created successfully!");
+          navigate("/dashboard", { replace: true });
+        }
       }
     } catch (err) {
       console.error("Create anonymous account error:", err);

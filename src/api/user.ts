@@ -3,6 +3,7 @@ import { USER_ENDPOINT, LOG_ENDPOINT } from "./endpoints";
 import { ActivityLogResponse } from "../types/suggestion";
 import { MODE_CONFIG } from "@/types/mode";
 import { UsersPaginationParams, UsersResponse } from "@/types/data";
+import { apiFetch } from "./request";
 
 /**
  * Function to save user settings to the database.
@@ -16,7 +17,7 @@ export async function saveUserSettings(
 ): Promise<{ success?: boolean; error?: string }> {
   console.log("Saving user settings:", userId, settings);
   try {
-    const response = await fetch(`${USER_ENDPOINT}/${userId}/settings`, {
+    const response = await apiFetch(`${USER_ENDPOINT}/${userId}/settings`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -51,7 +52,7 @@ export async function getUserData(
   userId: string
 ): Promise<{ data?: User; error?: string }> {
   try {
-    const response = await fetch(`${USER_ENDPOINT}/${userId}`, {
+    const response = await apiFetch(`${USER_ENDPOINT}/${userId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -103,7 +104,7 @@ export async function getUserActivity(
   try {
     const url = `${LOG_ENDPOINT}/suggestion/${userId}/${config.route}`;
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -139,7 +140,7 @@ export async function getAllUsers(params: UsersPaginationParams = {}): Promise<{
     if (params.limit) url.searchParams.append("limit", params.limit.toString());
     if (params.search) url.searchParams.append("search", params.search);
 
-    const response = await fetch(url.toString(), {
+    const response = await apiFetch(url.toString(), {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -182,7 +183,7 @@ export async function deleteUser(userID: string): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${USER_ENDPOINT}/${userID}`, {
+    const response = await apiFetch(`${USER_ENDPOINT}/${userID}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     });
@@ -227,7 +228,7 @@ export async function updateUser(
       avatar_url: payload.avatarUrl,
     };
 
-    const response = await fetch(`${USER_ENDPOINT}/${userId}`, {
+    const response = await apiFetch(`${USER_ENDPOINT}/${userId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendPayload),
@@ -260,7 +261,7 @@ export async function updateUserPassword(
   error?: string;
 }> {
   try {
-    const response = await fetch(`${USER_ENDPOINT}/${userId}/password`, {
+    const response = await apiFetch(`${USER_ENDPOINT}/${userId}/password`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(password),
