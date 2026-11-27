@@ -10,6 +10,7 @@ import {
   BarChart3,
   ClipboardPenIcon,
   BugIcon,
+  DatabaseIcon,
 } from "lucide-react";
 import { UserRole } from "../types/user";
 import { ComponentType } from "react";
@@ -20,12 +21,13 @@ import StudentLogsView from "@/pages/dashboard/ui/views/student/StudentLogsView"
 import InstructorStudentListView from "@/pages/dashboard/ui/views/instructor/InstructorStudentListView";
 import InstructorStatsView from "@/pages/dashboard/ui/views/instructor/InstructorStatsView";
 import InstructorClassesView from "@/pages/dashboard/ui/views/instructor/InstructorClassesView";
-import UsersAdministrationView from "@/pages/dashboard/ui/views/admin/UsersAdministrationView";
-import ClassesAdministrationView from "@/pages/dashboard/ui/views/admin/ClassesAdministrationView";
+import AdminUserDataView from "@/pages/dashboard/ui/views/admin/AdminUserDataView.tsx";
+import AdminClassDataView from "@/pages/dashboard/ui/views/admin/AdminClassDataView.tsx";
 import AppAnalyticsView from "@/pages/dashboard/ui/views/dev/AppAnalyticsView";
 import StudentQuizView from "@/pages/dashboard/ui/views/student/StudentQuizView";
 import ErrorAnalyticsView from "@/pages/dashboard/ui/views/dev/ErrorAnalyticsView";
-import ViewAllSurveys from "@/pages/dashboard/ui/views/admin/ViewAllSurveys";
+import AdminSurveyDataView from "@/pages/dashboard/ui/views/admin/AdminSurveyDataView.tsx";
+import AdminManageDataView from "@/pages/dashboard/ui/views/admin/AdminManageDataView.tsx";
 
 export type SideBarItem = {
   id: string;
@@ -105,75 +107,84 @@ export const sidebarItems: SideBarItem[] = [
     roles: STUDENT,
     dashboardView: StudentLogsView,
   },
-  {
-    id: "user-quiz",
-    icon: ClipboardPenIcon,
-    name: "Review",
-    title: "Quiz",
-    subheading: "My Dashboard",
-    roles: STUDENT,
-    dashboardView: StudentQuizView,
-  },
+  // {
+  //   id: "user-quiz",
+  //   icon: ClipboardPenIcon,
+  //   name: "Review",
+  //   title: "Quiz",
+  //   subheading: "My Dashboard",
+  //   roles: STUDENT,
+  //   dashboardView: StudentQuizView,
+  // },
 
-  // Teaching
-  {
-    id: "instructor-stats",
-    icon: BarChart3,
-    name: "Class Statistics",
-    title: "Student Performance Analytics",
-    subheading: "Teaching",
-    description: "Track and analyze student performance and progress.",
-    roles: INSTRUCTOR,
-    dashboardView: InstructorStatsView,
-  },
-  {
-    id: "instructor-students",
-    icon: Users,
-    name: "Students",
-    title: "Student Management",
-    subheading: "Teaching",
-    roles: INSTRUCTOR,
-    dashboardView: InstructorStudentListView,
-  },
-  {
-    id: "instructor-classes",
-    icon: BookOpenText,
-    name: "Classes",
-    title: "Class Management",
-    description:
-      "Create new courses, monitor class progress, and manage your teaching portfolio.",
-    subheading: "Teaching",
-    roles: INSTRUCTOR,
-    dashboardView: InstructorClassesView,
-  },
+  // Instructor
+  // {
+  //   id: "instructor-stats",
+  //   icon: BarChart3,
+  //   name: "Class Statistics",
+  //   title: "Student Performance Analytics",
+  //   subheading: "Instructor",
+  //   description: "Track and analyze student performance and progress.",
+  //   roles: INSTRUCTOR,
+  //   dashboardView: InstructorStatsView,
+  // },
+  // {
+  //   id: "instructor-students",
+  //   icon: Users,
+  //   name: "Students",
+  //   title: "Student Management",
+  //   subheading: "Instructor",
+  //   roles: INSTRUCTOR,
+  //   dashboardView: InstructorStudentListView,
+  // },
+  // {
+  //   id: "instructor-classes",
+  //   icon: BookOpenText,
+  //   name: "Classes",
+  //   title: "Class Management",
+  //   description:
+  //     "Create new courses, monitor class progress, and manage your teaching portfolio.",
+  //   subheading: "Instructor",
+  //   roles: INSTRUCTOR,
+  //   dashboardView: InstructorClassesView,
+  // },
 
-  // Administration
+  // Admin
   {
     id: "admin-users",
     icon: Users,
     name: "Manage Users",
-    title: "User Administration",
-    subheading: "Administration",
+    title: "User Data Management",
+    subheading: "Admin",
     roles: ADMIN,
-    dashboardView: UsersAdministrationView,
+    dashboardView: AdminUserDataView,
   },
   {
     id: "admin-classes",
     icon: Settings,
     name: "Manage Classes",
-    title: "Class Administration",
-    subheading: "Administration",
+    title: "Class Data Management",
+    subheading: "Admin",
     roles: ADMIN,
-    dashboardView: ClassesAdministrationView,
+    dashboardView: AdminClassDataView,
   },
   {
     id: "admin-surveys",
     icon: FileText,
-    name: "Surveys",
-    title: "Survey Management",
-    subheading: "Administration",
+    name: "Manage Surveys",
+    title: "Survey Data Management",
+    subheading: "Admin",
     roles: ADMIN,
-    dashboardView: ViewAllSurveys,
+    dashboardView: AdminSurveyDataView,
+  },
+  {
+    id: "admin-data",
+    icon: DatabaseIcon,
+    name: "Manage Data",
+    title: "Supabase Data Management",
+    subheading: "Admin",
+    roles: ADMIN,
+    dashboardView: AdminManageDataView,
   },
 
   // Development

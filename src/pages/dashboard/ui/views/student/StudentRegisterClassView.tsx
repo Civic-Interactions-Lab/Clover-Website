@@ -1,10 +1,12 @@
 import RegisterClassDialog from "@/pages/classes/ui/components/RegisterClassDialog";
 import { useUser } from "@/context/UserContext";
-import { useAllClasses } from "@/hooks/useAllClasses";
 import ClassesTable from "../../components/ClassesTable";
 import { BookOpen, Calendar, Flame } from "lucide-react";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useState } from "react";
+import { ClassData } from "@/types/user";
+import { getAllClasses } from "@/api/classes";
 
 interface StudentRegisterClassViewProps {
   description?: string;
@@ -14,23 +16,40 @@ const StudentRegisterClassView = ({
   description,
 }: StudentRegisterClassViewProps) => {
   const { userData } = useUser();
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const {
-    classes,
-    isLoading,
-    refetch: onRefresh,
-  } = useAllClasses({
-    userId: userData?.id,
-  });
+  const fetchClasses = async () => {
+    if (!userData?.id) return;
+
+    const { data, error } = await getAllClasses({ page: 1, limit: 1000, userId: userData.id });
+
+    if (error) {
+      console.error(error);
+      setIsLoading(false);
+      return;
+    }
+
+    setClasses((data?.classes ?? []) as ClassData[]);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchClasses();
+    const refresh = window.setInterval(fetchClasses, 30_000);
+
+    return () => {
+      window.clearInterval(refresh);
+    };
+  }, [userData?.id]);
 
   if (isLoading) {
     return <Loading size="lg" />;
   }
 
-  const availableClasses =
-    classes?.filter(
-      (cls) => !cls.enrollmentStatus && cls.instructorId !== userData?.id
-    ) || [];
+  const availableClasses = classes.filter(
+    (cls) => !cls.enrollmentStatus && cls.instructorId !== userData?.id,
+  );
 
   const newClasses = availableClasses.filter((cls) => {
     const classDate = new Date(cls.createdAt!);
@@ -39,7 +58,7 @@ const StudentRegisterClassView = ({
     return classDate >= sevenDaysAgo;
   });
 
-  const hotClasses = classes.filter((cls) => cls.studentCount! > 0);
+  const hotClasses = classes.filter((cls) => (cls.studentCount ?? 0) > 0);
 
   const renderNewClasses = () => {
     if (newClasses.length === 0) {
@@ -56,13 +75,8 @@ const StudentRegisterClassView = ({
         </div>
       );
     }
-
     return (
-      <ClassesTable
-        classes={newClasses}
-        showActions={true}
-        onRefresh={onRefresh}
-      />
+      <ClassesTable classes={newClasses} showActions onRefresh={fetchClasses} />
     );
   };
 
@@ -81,13 +95,8 @@ const StudentRegisterClassView = ({
         </div>
       );
     }
-
     return (
-      <ClassesTable
-        classes={hotClasses}
-        showActions={true}
-        onRefresh={onRefresh}
-      />
+      <ClassesTable classes={hotClasses} showActions onRefresh={fetchClasses} />
     );
   };
 
@@ -106,38 +115,19 @@ const StudentRegisterClassView = ({
         </div>
       );
     }
-
     return (
       <ClassesTable
         classes={availableClasses}
-        showActions={true}
-        onRefresh={onRefresh}
+        showActions
+        onRefresh={fetchClasses}
       />
     );
   };
 
-  const renderEmptyState = () => {
-    if (
-      availableClasses.length > 0 ||
-      newClasses.length > 0 ||
-      hotClasses.length > 0
-    ) {
-      return null;
-    }
-
-    return (
-      <div className="text-center py-16">
-        <div className="space-y-4">
-          <div className="text-6xl">🎓</div>
-          <h2 className="text-2xl font-bold">All caught up!</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            You're enrolled in all available classes. Check back later for new
-            classes or ask your instructor to create more.
-          </p>
-        </div>
-      </div>
-    );
-  };
+  const isEmpty =
+    availableClasses.length === 0 &&
+    newClasses.length === 0 &&
+    hotClasses.length === 0;
 
   return (
     <div className="w-full">
@@ -148,7 +138,18 @@ const StudentRegisterClassView = ({
         <RegisterClassDialog />
       </div>
 
-      {renderEmptyState() || (
+      {isEmpty ? (
+        <div className="text-center py-16">
+          <div className="space-y-4">
+            <div className="text-6xl">🎓</div>
+            <h2 className="text-2xl font-bold">All caught up!</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              You're enrolled in all available classes. Check back later for new
+              classes or ask your instructor to create more.
+            </p>
+          </div>
+        </div>
+      ) : (
         <Tabs defaultValue="new" className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-sidebar">
             <TabsTrigger

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, VenetianMask } from "lucide-react";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import { AUTH_ENDPOINT } from "@/api/endpoints";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

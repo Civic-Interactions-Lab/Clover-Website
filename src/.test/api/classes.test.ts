@@ -15,7 +15,7 @@ jest.mock("../../api/endpoints", () => ({
   LOG_ENDPOINT: "http://mock-api/logs",
 }));
 
-jest.mock("../../supabaseClient", () => {
+jest.mock("../../lib/supabaseClient.ts", () => {
   return {
     supabase: {
       from: jest.fn(() => ({
@@ -124,7 +124,7 @@ describe("class-api", () => {
     const result = await updateStudentEnrollmentStatus(
       "class-1",
       "student-1",
-      "ENROLLED" as EnrollmentStatus
+      "ENROLLED" as EnrollmentStatus,
     );
 
     expect(result.success).toBe(true);
@@ -222,7 +222,7 @@ describe("class-api", () => {
 
     const result = await getClassActivityByClassId("class-id");
     expect(result.error).toBe(
-      "Invalid response: expected an array of activity logs"
+      "Invalid response: expected an array of activity logs",
     );
   });
 
@@ -233,7 +233,7 @@ describe("class-api", () => {
     eqMock.mockReturnValueOnce(errorResult); // for .eq("student_id", ...)
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("../../supabaseClient").supabase.from = jest.fn(() => ({
+    require("../../lib/supabaseClient.ts").supabase.from = jest.fn(() => ({
       update: jest.fn(() => ({
         eq: jest.fn().mockReturnValue({
           eq: eqMock,
@@ -244,7 +244,7 @@ describe("class-api", () => {
     const result = await updateStudentEnrollmentStatus(
       "c1",
       "s1",
-      EnrollmentStatus.ENROLLED
+      EnrollmentStatus.ENROLLED,
     );
 
     expect(result.success).toBe(false);

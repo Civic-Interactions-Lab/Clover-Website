@@ -1,10 +1,10 @@
-import { registerUser } from "@/api/auth";
+import { anonymousAuth, createStudyHandoff } from "@/api/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/supabaseClient";
-import React, { useState } from "react";
+import { supabase } from "@/lib/supabaseClient.ts";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { generateSlug } from "random-word-slugs";
@@ -15,47 +15,75 @@ import ConsentFormViewCheck from "../components/ConsentFormViewCheck";
 const ANONYMOUS_PASSWORD = import.meta.env.VITE_ANONYMOUS_SHARED_PASSWORD;
 
 const AnonymousLoginView = () => {
-  const [mode, setMode] = useState("signin"); // "signin" or "signup"
+  const [mode, setMode] = useState("signin");
   const [username, setUsername] = useState("");
   const [isConsent, setIsConsent] = useState(false);
   const [hasViewedConsent, setHasViewedConsent] = useState(false);
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const studySlug = new URLSearchParams(window.location.search).get("studySlug") || undefined;
+  const localSiteUrl = import.meta.env.VITE_SITE_URL || "http://clovercode.test";
+
+  useEffect(() => {
+    const current = new URL(window.location.href);
+    if (
+      studySlug &&
+      current.port === "5173" &&
+      (current.hostname === "localhost" || current.hostname === "127.0.0.1")
+    ) {
+      const canonical = new URL(localSiteUrl);
+      current.protocol = canonical.protocol;
+      current.host = canonical.host;
+      window.location.replace(current.toString());
+    }
+  }, [studySlug, localSiteUrl]);
+
+  const continueToStudy = async (userId: string) => {
+    if (!studySlug) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !data.session?.access_token) {
+      setError("Sign in again to continue to the study workspace.");
+      return;
+    }
+
+    const handoff = await createStudyHandoff(studySlug, data.session.access_token);
+    if (handoff.error) {
+      setError(handoff.error);
+      return;
+    }
+    if (handoff.surveyId) {
+      const params = new URLSearchParams({ surveyId: handoff.surveyId, userId, studySlug });
+      navigate(`/survey?${params.toString()}`, { replace: true });
+      return;
+    }
+    if (!handoff.handoffCode || !handoff.continueUrl) {
+      setError("Could not continue to the study workspace. Try signing in again.");
+      return;
+    }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = handoff.continueUrl;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "handoffCode";
+    input.value = handoff.handoffCode;
+    form.append(input);
+    document.body.append(form);
+    form.submit();
+  };
 
   const generateRandomUsername = (): void => {
     const newUsername = generateSlug(2, {
       format: "kebab",
       partsOfSpeech: ["adjective", "noun"],
-      categories: {
-        noun: ["animals"],
-      },
+      categories: { noun: ["animals"] },
     });
     setUsername(newUsername);
     setError("");
-  };
-
-  const checkUsernameExists = async (
-    usernameToCheck: string
-  ): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from("users")
-        .select("first_name")
-        .eq("first_name", usernameToCheck)
-        .limit(1);
-
-      if (error) {
-        console.error("Error checking username:", error);
-        return false;
-      }
-
-      return data && data.length > 0;
-    } catch (err) {
-      console.error("Username check error:", err);
-      return false;
-    }
   };
 
   const handleSignIn = async () => {
@@ -68,22 +96,39 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const email = `${username.trim().toLowerCase()}@anonymous.com`;
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: ANONYMOUS_PASSWORD,
-      });
-
-      if (error) {
+      const result = await anonymousAuth("signin", username, undefined, studySlug);
+      if (result.error) {
         setError(
-          "No account found with this username. Try creating a new one."
+          "No account found with this username. Try creating a new one.",
+        );
+        return;
+      }
+
+      const email = `${username.trim().toLowerCase()}@anonymous.com`;
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: ANONYMOUS_PASSWORD,
+        });
+
+      if (signInError) {
+        setError(
+          "No account found with this username. Try creating a new one.",
         );
         return;
       }
 
       if (data) {
-        toast.success("Sign in anonymous successfully!");
-        navigate("/dashboard", { replace: true });
+        if (studySlug) {
+          if (result.userId && data.user?.id !== result.userId) {
+            setError("Could not verify your participant account. Sign in again.");
+            return;
+          }
+          await continueToStudy(data.user!.id);
+        } else {
+          toast.success("Signed in anonymously!");
+          navigate("/dashboard", { replace: true });
+        }
       }
     } catch (err) {
       console.error("Anonymous sign in error:", err);
@@ -103,35 +148,16 @@ const AnonymousLoginView = () => {
     setLoading(true);
 
     try {
-      const usernameExists = await checkUsernameExists(username.trim());
-
-      if (usernameExists) {
-        setError(
-          "This username is already taken. Please choose a different one or generate a new one."
-        );
-        setLoading(false);
+      const result = await anonymousAuth("signup", username, isConsent, studySlug);
+      if (result.error) {
+        setError(result.error);
         return;
       }
 
       const email = `${username.trim().toLowerCase()}@anonymous.com`;
-
-      const registerResult = await registerUser(
-        username.trim(),
-        "",
-        email,
-        ANONYMOUS_PASSWORD,
-        isConsent
-      );
-
-      if (registerResult.error) {
-        setError(registerResult.error);
-        return;
-      }
-
-      // Sign in the newly created user
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
-          email: email,
+          email,
           password: ANONYMOUS_PASSWORD,
         });
 
@@ -141,8 +167,16 @@ const AnonymousLoginView = () => {
       }
 
       if (data) {
-        toast.success("Anonymous account created successfully!");
-        navigate("/dashboard", { replace: true });
+        if (studySlug) {
+          if (result.userId && data.user?.id !== result.userId) {
+            setError("Could not verify your participant account. Sign in again.");
+            return;
+          }
+          await continueToStudy(data.user!.id);
+        } else {
+          toast.success("Anonymous account created successfully!");
+          navigate("/dashboard", { replace: true });
+        }
       }
     } catch (err) {
       console.error("Create anonymous account error:", err);
@@ -164,19 +198,9 @@ const AnonymousLoginView = () => {
     setUsername("");
     setIsConsent(false);
     setHasViewedConsent(false);
-
-    // Generate username for signup mode
     if (newMode === "signup") {
       setTimeout(() => generateRandomUsername(), 0);
     }
-  };
-
-  const handleConsentChange = (consented: boolean) => {
-    setIsConsent(consented);
-  };
-
-  const handleConsentViewed = (hasViewed: boolean) => {
-    setHasViewedConsent(hasViewed);
   };
 
   return (
@@ -266,7 +290,7 @@ const AnonymousLoginView = () => {
                   placeholder="e.g. happy-dolphin"
                   value={username}
                   onChange={handleUsernameChange}
-                  className="w-full text-center text-lg font-mono  border-gray-600 placeholder-gray-400 py-6"
+                  className="w-full text-center text-lg font-mono border-gray-600 placeholder-gray-400 py-6"
                   disabled={loading}
                 />
               </div>
@@ -282,11 +306,10 @@ const AnonymousLoginView = () => {
 
               <div className="h-6" />
 
-              {/* Consent Checkbox Component */}
               <ConsentFormViewCheck
                 isConsent={isConsent}
-                onConsentChange={handleConsentChange}
-                onConsentViewed={handleConsentViewed}
+                onConsentChange={setIsConsent}
+                onConsentViewed={setHasViewedConsent}
                 showViewButton={true}
                 disabled={loading}
               />

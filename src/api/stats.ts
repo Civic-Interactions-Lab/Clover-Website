@@ -1,5 +1,6 @@
 import { STAT_ENDPOINT } from "./endpoints";
 import { AIStats } from "../types/suggestion";
+import { apiFetch } from "./request";
 
 /**
  * Fetches AI usage statistics from the server.
@@ -10,7 +11,7 @@ export async function getAIUsageStats(): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${STAT_ENDPOINT}/ai`, {
+    const response = await apiFetch(`${STAT_ENDPOINT}/ai`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });

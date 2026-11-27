@@ -83,6 +83,29 @@ const ConsentForm = ({
     }
   }, [isOpen, initialConsent]);
 
+  useEffect(() => {
+    if (!isOpen || !consentFormData) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const markVisibleFormAsRead = () => {
+      if (container.scrollHeight <= container.clientHeight + 10) {
+        setHasScrolledToBottom(true);
+      }
+    };
+    const frame = window.requestAnimationFrame(markVisibleFormAsRead);
+    const observer = typeof ResizeObserver === "undefined"
+      ? undefined
+      : new ResizeObserver(markVisibleFormAsRead);
+    observer?.observe(container);
+    if (container.firstElementChild) observer?.observe(container.firstElementChild);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [isOpen, consentFormData]);
+
   // Show loading state
   if (loading || !consentFormData) {
     return (
@@ -146,11 +169,11 @@ const ConsentForm = ({
 
         {/* Scrollable Content */}
         <CardContent
-          className="flex-1 overflow-y-auto p-0 bg-white dark:bg-transparent"
+          className="min-h-0 flex-1 overflow-y-auto p-0 bg-white dark:bg-transparent"
           ref={scrollContainerRef}
           onScroll={handleScroll}
         >
-          <div className="h-full overflow-y-auto p-6">
+          <div className="p-6">
             <ConsentFormPreview
               consentFormData={consentFormData}
               showHeader={false}

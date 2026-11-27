@@ -38,8 +38,8 @@ const CustomSelect = <T extends string>({
     >
       <SelectTrigger
         className={cn(
-          "text-sm text-muted-foreground border-b border-slate-400 dark:border-sidebar-accent bg-gray-100 dark:bg-transparent",
-          className
+          "text-sm text-muted-foreground border-b border-slate-300 dark:border-sidebar-accent/60 bg-gray-100 dark:bg-transparent",
+          className,
         )}
       >
         <SelectValue placeholder={placeholder} />

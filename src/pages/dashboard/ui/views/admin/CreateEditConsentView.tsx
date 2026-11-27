@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/supabaseClient";
+import {
+  createAdminConsentBlock,
+  deleteAdminConsentBlock,
+  getAdminConsentForm,
+  mapAdminConsentForm,
+  updateAdminConsentBlock,
+  updateAdminConsentForm,
+} from "@/api/adminConsent";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -170,7 +177,7 @@ const SortableBlockItem = ({
                         variant="outline"
                         onClick={() => {
                           const newItems = block.content.items.filter(
-                            (_: any, i: number) => i !== index
+                            (_: any, i: number) => i !== index,
                           );
                           updateBlock(block.id, {
                             content: {
@@ -305,7 +312,7 @@ const CreateEditConsentView = () => {
   const [loading, setLoading] = useState(false);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, any>>(
-    new Map()
+    new Map(),
   );
 
   // Drag and drop sensors
@@ -317,7 +324,7 @@ const CreateEditConsentView = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const debouncedUpdates = useDebounce(pendingUpdates, 500) as Map<string, any>;
@@ -330,20 +337,6 @@ const CreateEditConsentView = () => {
     sortOrder: dbBlock.sort_order,
     createdAt: dbBlock.created_at,
     updatedAt: dbBlock.updated_at,
-  });
-
-  const dbFormToFrontend = (dbForm: any): ConsentForm => ({
-    id: dbForm.id,
-    title: dbForm.title,
-    principalInvestigator: dbForm.principal_investigator,
-    institution: dbForm.institution,
-    irbProtocol: dbForm.irb_protocol,
-    email: dbForm.email,
-    phone: dbForm.phone,
-    faculty: dbForm.faculty,
-    createdAt: dbForm.created_at,
-    updatedAt: dbForm.updated_at,
-    blocks: (dbForm.blocks || []).map(dbBlockToFrontend),
   });
 
   const handleDragEnd = useCallback(
@@ -376,19 +369,15 @@ const CreateEditConsentView = () => {
         }));
 
         for (const update of updates) {
-          const { error } = await supabase
-            .from("consent_form_blocks")
-            .update({ sort_order: update.sort_order })
-            .eq("id", update.id);
-
-          if (error) throw error;
+          const { error } = await updateAdminConsentBlock(update.id, { sortOrder: update.sort_order });
+          if (error) throw new Error(error);
         }
       } catch (err) {
         console.error("Failed to update block order:", err);
         loadConsentForm();
       }
     },
-    [blocks]
+    [blocks],
   );
 
   useEffect(() => {
@@ -406,12 +395,11 @@ const CreateEditConsentView = () => {
           if (updateData.sortOrder !== undefined)
             dbUpdates.sort_order = updateData.sortOrder;
 
-          const { error } = await supabase
-            .from("consent_form_blocks")
-            .update(dbUpdates)
-            .eq("id", blockId);
-
-          if (error) throw error;
+          const { error } = await updateAdminConsentBlock(blockId, {
+            ...(dbUpdates.content !== undefined ? { content: dbUpdates.content } : {}),
+            ...(dbUpdates.sort_order !== undefined ? { sortOrder: dbUpdates.sort_order } : {}),
+          });
+          if (error) throw new Error(error);
         } catch (err) {
           console.error("Failed to update block:", err);
         }
@@ -425,34 +413,17 @@ const CreateEditConsentView = () => {
     setLoading(true);
     try {
       // Load main form
-      const { data: formData, error: formError } = await supabase
-        .from("consent_forms")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
+      const { data: formData, error: formError } = await getAdminConsentForm();
 
-      if (formError) {
+      if (formError || !formData) {
         console.error("Error loading consent form:", formError);
         return;
       }
 
       if (formData) {
-        setConsentForm(dbFormToFrontend(formData));
-
-        // Load blocks for this form
-        const { data: blocksData, error: blocksError } = await supabase
-          .from("consent_form_blocks")
-          .select("*")
-          .eq("form_id", formData.id)
-          .order("sort_order", { ascending: true });
-
-        if (blocksError) {
-          console.error("Error loading blocks:", blocksError);
-          return;
-        }
-
-        setBlocks((blocksData || []).map(dbBlockToFrontend));
+        const mapped = mapAdminConsentForm(formData);
+        setConsentForm(mapped);
+        setBlocks(mapped.blocks);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -470,25 +441,21 @@ const CreateEditConsentView = () => {
     try {
       // Map camelCase to snake_case for database
       const fieldMapping: { [key: string]: string } = {
-        studyTitle: "study_title",
+        studyTitle: "title",
         principalInvestigator: "principal_investigator",
         irbProtocol: "irb_protocol",
       };
 
       const dbField = fieldMapping[field] || field;
 
-      const { error } = await supabase
-        .from("consent_forms")
-        .update({ [dbField]: value })
-        .eq("id", consentForm.id);
-
-      if (error) throw error;
+      const { error } = await updateAdminConsentForm(consentForm.id, { [dbField]: String(value) });
+      if (error) throw new Error(error);
     } catch (err) {
       console.error(`Failed to update ${field}:`, err);
       setConsentForm((prev) =>
         prev
           ? { ...prev, [field]: consentForm[field as keyof ConsentForm] }
-          : null
+          : null,
       );
     }
   };
@@ -497,8 +464,8 @@ const CreateEditConsentView = () => {
     (blockId: string, updates: Partial<ConsentFormBlock>) => {
       setBlocks((prev) =>
         prev.map((block) =>
-          block.id === blockId ? { ...block, ...updates } : block
-        )
+          block.id === blockId ? { ...block, ...updates } : block,
+        ),
       );
 
       setPendingUpdates((prev) => {
@@ -508,7 +475,7 @@ const CreateEditConsentView = () => {
         return newMap;
       });
     },
-    []
+    [],
   );
 
   const addBlock = async (type: string) => {
@@ -517,20 +484,14 @@ const CreateEditConsentView = () => {
     const newSortOrder = Math.max(...blocks.map((b) => b.sortOrder), 0) + 1;
 
     try {
-      const { data, error } = await supabase
-        .from("consent_form_blocks")
-        .insert({
-          form_id: consentForm.id,
-          type,
-          content: getDefaultContent(type),
-          sort_order: newSortOrder,
-        })
-        .select()
-        .single();
+      const { block, error } = await createAdminConsentBlock(consentForm.id, {
+        type,
+        content: getDefaultContent(type),
+        sortOrder: newSortOrder,
+      });
+      if (error || !block) throw new Error(error || "Could not create the consent block.");
 
-      if (error) throw error;
-
-      const newBlock = dbBlockToFrontend(data);
+      const newBlock = dbBlockToFrontend(block);
       setBlocks((prev) => [...prev, newBlock]);
       setEditingBlock(newBlock.id);
     } catch (err) {
@@ -540,12 +501,8 @@ const CreateEditConsentView = () => {
 
   const deleteBlock = async (blockId: string) => {
     try {
-      const { error } = await supabase
-        .from("consent_form_blocks")
-        .delete()
-        .eq("id", blockId);
-
-      if (error) throw error;
+      const { error } = await deleteAdminConsentBlock(blockId);
+      if (error) throw new Error(error);
 
       setBlocks((prev) => prev.filter((block) => block.id !== blockId));
     } catch (err) {
@@ -555,90 +512,13 @@ const CreateEditConsentView = () => {
 
   useEffect(() => {
     loadConsentForm();
-
-    // Subscribe to form changes
-    const formChannel = supabase
-      .channel("consent-forms-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "consent_forms",
-        },
-        (payload) => {
-          console.log("[Realtime] Form changed:", payload);
-
-          if (
-            payload.eventType === "UPDATE" &&
-            payload.new &&
-            typeof payload.new === "object" &&
-            "id" in payload.new &&
-            payload.new.id === consentForm?.id
-          ) {
-            setConsentForm(dbFormToFrontend(payload.new));
-          }
-        }
-      )
-      .subscribe();
-
-    // Subscribe to block changes
-    const blocksChannel = supabase
-      .channel("consent-form-blocks-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "consent_form_blocks",
-        },
-        (payload) => {
-          console.log("[Realtime] Block changed:", payload);
-
-          if (payload.eventType === "INSERT" && payload.new) {
-            if (typeof payload.new === "object" && "form_id" in payload.new) {
-              const newBlock = dbBlockToFrontend(payload.new);
-              if (newBlock.formId === consentForm?.id) {
-                setBlocks((prev) => {
-                  // Check if block already exists to prevent duplicates
-                  if (prev.find((b) => b.id === newBlock.id)) return prev;
-                  return [...prev, newBlock].sort(
-                    (a, b) => a.sortOrder - b.sortOrder
-                  );
-                });
-              }
-            }
-          }
-
-          if (payload.eventType === "UPDATE" && payload.new) {
-            if (typeof payload.new === "object" && "form_id" in payload.new) {
-              const updatedBlock = dbBlockToFrontend(payload.new);
-              if (updatedBlock.formId === consentForm?.id) {
-                setBlocks((prev) =>
-                  prev.map((block) =>
-                    block.id === updatedBlock.id ? updatedBlock : block
-                  )
-                );
-              }
-            }
-          }
-
-          if (payload.eventType === "DELETE" && payload.old) {
-            if (typeof payload.old === "object" && "id" in payload.old) {
-              setBlocks((prev) =>
-                prev.filter((block) => block.id !== (payload.old as any).id)
-              );
-            }
-          }
-        }
-      )
-      .subscribe();
-
+    const refresh = window.setInterval(() => {
+      if (debouncedUpdates.size === 0) loadConsentForm();
+    }, 30_000);
     return () => {
-      supabase.removeChannel(formChannel);
-      supabase.removeChannel(blocksChannel);
+      window.clearInterval(refresh);
     };
-  }, [consentForm?.id]);
+  }, [consentForm?.id, debouncedUpdates.size]);
 
   // Helper functions for default content
   const getDefaultContent = (type: string) => {
@@ -722,7 +602,7 @@ const CreateEditConsentView = () => {
                         onChange={(e) =>
                           updateFormField(
                             "principalInvestigator",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         placeholder="Principal Investigator name"

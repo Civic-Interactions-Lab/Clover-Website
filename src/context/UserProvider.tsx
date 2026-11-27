@@ -3,7 +3,7 @@ import { User } from "../types/user";
 import { useAuth } from "../hooks/useAuth";
 import { getUserData } from "../api/user";
 import { UserContext } from "./UserContext";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, user } = useAuth();
@@ -23,7 +23,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
           if (window.location.pathname !== "/reset-form") {
             // If they're not on reset page, sign them out
             console.log(
-              "Password recovery detected on wrong page, signing out..."
+              "Password recovery detected on wrong page, signing out...",
             );
             await supabase.auth.signOut();
           }
@@ -32,7 +32,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (event === "SIGNED_IN") {
           setIsPasswordRecovery(false);
         }
-      }
+      },
     );
 
     return () => authListener.subscription.unsubscribe();

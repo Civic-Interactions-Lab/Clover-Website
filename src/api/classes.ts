@@ -3,6 +3,7 @@ import { ClassData, EnrollmentStatus, UserSettings } from "../types/user";
 import { ClassInfo } from "@/types/class";
 import { ActivityLogResponse } from "@/types/suggestion";
 import { ClassPaginationParams } from "@/types/data";
+import { apiFetch } from "./request";
 
 /**
  * * Creates a new class in the database.
@@ -13,7 +14,7 @@ export const createClass = async (
   newClass: ClassInfo,
 ): Promise<{ id?: string; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newClass),
@@ -47,7 +48,7 @@ export const updateClass = async (
   updates: Partial<ClassInfo>,
 ): Promise<{ id?: string; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/${classId}`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/${classId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -80,7 +81,7 @@ export const deleteClass = async (
   classId: string,
 ): Promise<{ success?: boolean; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/${classId}`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/${classId}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     });
@@ -124,7 +125,7 @@ export const getClassesByInstructor = async (
       url.searchParams.append("includeStudents", "true");
     }
 
-    const response = await fetch(url.toString());
+    const response = await apiFetch(url.toString());
 
     const data = await response.json();
 
@@ -158,7 +159,7 @@ export async function getClassesbyStudent(studentId: string): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/students/${studentId}`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/students/${studentId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -191,7 +192,7 @@ export const registerUserClass = async (
   classId: string,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/register`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, classId }),
@@ -222,7 +223,7 @@ export const unregisterUserClass = async (
   classId: string,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/unregister`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/unregister`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -257,7 +258,7 @@ export async function getClassActivityByInstructorId(
   console.log("Fetching class activity for instructor:", instructorId);
 
   try {
-    const response = await fetch(`${LOG_ENDPOINT}/instructor/${instructorId}`, {
+    const response = await apiFetch(`${LOG_ENDPOINT}/instructor/${instructorId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -301,7 +302,7 @@ export const updateStudentEnrollmentStatus = async (
   newStatus: EnrollmentStatus,
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await fetch(`${CLASS_ENDPOINT}/enrollment-status`, {
+    const response = await apiFetch(`${CLASS_ENDPOINT}/enrollment-status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -359,7 +360,7 @@ export async function getAllClasses(
 
     const url = `${CLASS_ENDPOINT}/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -395,7 +396,7 @@ export async function updateClassStudentsSettings(
   settings: UserSettings,
 ): Promise<{ data?: boolean; error?: string }> {
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `${CLASS_ENDPOINT}/${classId}/students/settings`,
       {
         method: "PUT",
@@ -458,7 +459,7 @@ export async function getClassById(
     const queryString = searchParams.toString();
     const url = `${CLASS_ENDPOINT}/${classId}${queryString ? `?${queryString}` : ""}`;
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });

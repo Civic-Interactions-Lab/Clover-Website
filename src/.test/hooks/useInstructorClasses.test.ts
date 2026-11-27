@@ -24,7 +24,7 @@ const supabaseMocks: {
 };
 
 // Supabase module mock
-jest.mock("../../supabaseClient", () => ({
+jest.mock("../../lib/supabaseClient.ts", () => ({
   supabase: {
     from: (...args: any[]) => supabaseMocks.mockFrom(...args),
     select: (...args: any[]) => supabaseMocks.mockSelect(...args),

@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/supabaseClient";
+import { getCompletedSurvey } from "@/api/surveys";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import SurveyPreview, {
-  Participant,
-  Survey,
-  SurveyAnswers,
-} from "./SurveyPreview";
+import SurveyPreview, { Participant, Survey } from "./SurveyPreview";
 
 const CompletedSurveyView = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -15,7 +11,7 @@ const CompletedSurveyView = () => {
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [user, setUser] = useState<Participant | null>(null);
-  const [answers, setAnswers] = useState<SurveyAnswers>({});
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,56 +21,26 @@ const CompletedSurveyView = () => {
       try {
         setLoading(true);
 
-        // 1. Load survey with questions
-        const { data: surveyData, error: surveyError } = await supabase
-          .from("surveys")
-          .select(
-            `
-            id,
-            title,
-            description,
-            context,
-            type,
-            created_at,
-            questions:survey_questions(
-              id,
-              survey_id,
-              question_type,
-              question_number,
-              question_text,
-              question_options,
-              is_required,
-              created_at
-            )
-          `
-          )
-          .eq("id", surveyId)
-          .single();
+        const { survey, user: participant, answers, error } =
+          await getCompletedSurvey(surveyId, userId);
+        if (error) throw new Error(error);
+        if (!survey || !participant) throw new Error("Survey response not found.");
 
-        if (surveyError) throw surveyError;
+        setSurvey(survey as Survey);
+        setUser({
+          id: participant.id,
+          first_name: participant.first_name ?? "",
+          pid: participant.pid ?? "",
+        });
 
-        // 2. Load participant
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id, first_name, pid")
-          .eq("id", userId)
-          .single();
-
-        if (userError) throw userError;
-
-        // 3. Load their survey response
-        const { data: responseData, error: responseError } = await supabase
-          .from("survey_responses")
-          .select("answers")
-          .eq("survey_id", surveyId)
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (responseError) throw responseError;
-
-        setSurvey(surveyData as Survey);
-        setUser(userData as Participant);
-        setAnswers(responseData?.answers || {});
+        // Convert [{ questionId, value }] array to Record<string, string>
+        const answersArray: { questionId: string; value: string }[] =
+          answers ?? [];
+        const answersMap: Record<string, string> = {};
+        answersArray.forEach(({ questionId, value }) => {
+          answersMap[questionId] = value;
+        });
+        setAnswers(answersMap);
       } catch (err) {
         console.error("Error loading completed survey:", err);
       } finally {

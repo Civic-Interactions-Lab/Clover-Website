@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { updateUserPassword } from "../api/user";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabaseClient.ts";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,7 @@ export const ResetPasswordButton = ({ userId }: { userId?: string }) => {
     if (userId) {
       const { error } = await updateUserPassword(
         userId,
-        form.getValues("newPassword")
+        form.getValues("newPassword"),
       );
 
       if (error) {

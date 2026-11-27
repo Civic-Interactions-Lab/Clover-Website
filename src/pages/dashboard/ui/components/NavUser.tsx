@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { useUser } from "@/context/UserContext";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import UserInfoItem from "@/components/UserInfoItem";
 import { LogOutIcon, User2Icon } from "lucide-react";
 

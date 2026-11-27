@@ -1,20 +1,21 @@
 {
   "compilerOptions": {
-    "target": "ESNext",                       
-    "lib": ["DOM", "DOM.Iterable", "ESNext"], 
-    "jsx": "react-jsx",                       
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "jsx": "react-jsx",
     "module": "ESNext",
-    "moduleResolution": "Bundler",           
-    "baseUrl": ".",                           
+    "moduleResolution": "Bundler",
+    "ignoreDeprecations": "5.0",
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     },
     "esModuleInterop": true,
-    "skipLibCheck": true,                     
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true                            
+    "noEmit": true
   },
   "include": ["src"]
 }

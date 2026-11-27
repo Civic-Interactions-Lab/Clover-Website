@@ -14,7 +14,7 @@ import { DoorOpen, Menu, User2 } from "lucide-react";
 import { UserRole } from "@/types/user";
 import { useUser } from "@/context/UserContext";
 import UserAvatar from "./UserAvatar";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import CloverLogo from "./CloverLogo";
 
 /**

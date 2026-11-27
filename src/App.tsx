@@ -54,6 +54,13 @@ const ProtectedRoute = (): JSX.Element => {
   return <Outlet />;
 };
 
+const StudyAnonymousRoute = (): JSX.Element =>
+  new URLSearchParams(window.location.search).has("studySlug") ? (
+    <AnonymousLoginView />
+  ) : (
+    <Navigate to="/early-access" replace />
+  );
+
 /**
  * App component that contains the main routing logic for the application.
  * @returns {JSX.Element} - The main application component.
@@ -120,10 +127,12 @@ const App = (): JSX.Element => {
                     <Route path="download" element={<Download />} />
                     <Route path="/login" element={<LogInView />} />
                     <Route path="/signup" element={<SignUpView />} />
-                    <Route path="/anonymous" element={<AnonymousLoginView />} />
                     <Route path="/getting-started" element={<Help />} />
                     <Route path="/passwordreset" element={<Reset />} />
                   </Route>
+                </Route>
+                <Route path="/anonymous" element={<PublicLayout />}>
+                  <Route index element={<StudyAnonymousRoute />} />
                 </Route>
                 <Route path="/resetform" element={<PasswordCallback />} />
                 <Route path="/auth" element={<AuthCallback />} />

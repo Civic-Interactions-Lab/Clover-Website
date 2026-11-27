@@ -66,11 +66,6 @@ export interface ProgressData {
   accuracyPercentage: number;
 }
 
-export interface UserWithActivity extends User, ProgressData {
-  lastActivity: string | null;
-  activityMode: UserMode | null;
-}
-
 export interface ClassData extends ClassInfo {
   createdAt?: string;
   instructorName?: string;

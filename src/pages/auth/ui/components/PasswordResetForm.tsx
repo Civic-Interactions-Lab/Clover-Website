@@ -1,4 +1,4 @@
-import { supabase } from "@/supabaseClient";
+import { supabase } from "@/lib/supabaseClient.ts";
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -50,7 +50,7 @@ export const PasswordResetForm = () => {
       if (error) {
         console.error("Password reset error:", error);
         setError(
-          error.message || "Failed to send reset email. Please try again."
+          error.message || "Failed to send reset email. Please try again.",
         );
         return;
       }
@@ -180,7 +180,7 @@ export const PasswordResetCallback = () => {
         if (event === "PASSWORD_RECOVERY") {
           setCanReset(true);
         }
-      }
+      },
     );
 
     return () => {

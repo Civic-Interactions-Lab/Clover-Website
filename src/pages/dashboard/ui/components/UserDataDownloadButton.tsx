@@ -1,34 +1,11 @@
 import DownloadFormattedFile from "@/components/DownloadFormattedFile";
-import { supabase } from "@/supabaseClient";
+import { getUserSuggestionExport } from "@/api/logs";
 import { User } from "@/types/user";
 import { useEffect, useState } from "react";
 
 interface UserDataDownloadButtonProps {
   user: User;
 }
-
-type UserLogData = {
-  id: string;
-  created_at: string;
-  event: string | null;
-  duration: number;
-  user_id: string;
-  line_suggestion: {
-    id: string;
-    incorrect_line: string | null;
-    correct_line: string | null;
-    shown_bug: boolean | null;
-    line_index: number | null;
-    line_suggestions_group: {
-      prompt: string;
-      suggestions: any;
-      model: string | null;
-      vendor: string | null;
-      language: string | null;
-      filename: string | null;
-    } | null;
-  } | null;
-};
 
 /**
  * UserDataDownload component that downloads user data
@@ -44,35 +21,7 @@ const UserDataDownloadButton = ({ user }: UserDataDownloadButtonProps) => {
 
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("line_suggestions_log")
-        .select(
-          `
-          id,
-          created_at,
-          event,
-          duration,
-          user_id,
-          line_suggestion:line_suggestion_id (
-            id,
-            incorrect_line,
-            correct_line,
-            shown_bug,
-            line_index,
-            line_suggestions_group:group_id (
-              prompt,
-              suggestions,
-              model,
-              vendor,
-              language,
-              filename
-            )
-          )
-        `
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true });
-
+      const { logs, error } = await getUserSuggestionExport(user.id);
       if (error) {
         console.error("Error fetching user data:", error);
         setLoading(false);
@@ -80,7 +29,7 @@ const UserDataDownloadButton = ({ user }: UserDataDownloadButtonProps) => {
       }
 
       const formattedData =
-        (data as unknown as UserLogData[])?.map((log, index) => ({
+        logs?.map((log, index) => ({
           "No.": index + 1,
           pid: user.pid,
           Username: user.firstName,
@@ -95,7 +44,7 @@ const UserDataDownloadButton = ({ user }: UserDataDownloadButtonProps) => {
           Prompt: log.line_suggestion?.line_suggestions_group?.prompt,
           Suggestions: log.line_suggestion?.line_suggestions_group?.suggestions
             ? JSON.stringify(
-                log.line_suggestion.line_suggestions_group.suggestions
+                log.line_suggestion.line_suggestions_group.suggestions,
               )
             : "N/A",
           Language:

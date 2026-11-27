@@ -1,6 +1,7 @@
 import { toCamelCase, toSnakeCase } from "@/lib/utils";
 import { ErrorLog, ErrorsResponse, GetErrorsParams } from "@/types/error";
 import { ERROR_ENDPOINT } from "./endpoints";
+import { apiFetch } from "./request";
 
 export interface UpdateErrorRequest {
   resolved?: boolean;
@@ -33,7 +34,7 @@ export async function getAllErrors(params: GetErrorsParams = {}): Promise<{
 
     console.log("Fetching errors with URL:", url);
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -79,7 +80,7 @@ export async function getErrorById(errorId: string): Promise<{
       return { error: "Error ID is required" };
     }
 
-    const response = await fetch(`${ERROR_ENDPOINT}/${errorId}`, {
+    const response = await apiFetch(`${ERROR_ENDPOINT}/${errorId}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -128,7 +129,7 @@ export async function resolveError(
     // Transform camelCase to snake_case for API
     const apiData = toSnakeCase(updateData);
 
-    const response = await fetch(`${ERROR_ENDPOINT}/${errorId}/resolve`, {
+    const response = await apiFetch(`${ERROR_ENDPOINT}/${errorId}/resolve`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(apiData),
