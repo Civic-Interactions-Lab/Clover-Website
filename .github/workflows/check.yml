@@ -23,6 +23,6 @@ jobs:
         run: npm ci
 
       - name: TypeScript type-check
-        run: tsc --noEmit
+        run: npm exec -- tsc --noEmit
 
       # Add testing later
