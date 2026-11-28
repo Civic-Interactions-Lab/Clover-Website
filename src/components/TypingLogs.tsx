@@ -64,8 +64,9 @@ interface TypingLogsProps {
 
 const focusEvents = [
   "TYPED",
+  "TAB",
   "SUGGESTION_SHOWN",
-  "SUGGESTION_TAB_CLICKED",
+  "SUGGESTION_COMMIT",
   "RUN",
   "SUGGESTION_GENERATED",
   "MOUSE_CLICKED",
@@ -80,7 +81,8 @@ const focusEvents = [
 
 const eventSelectOptions = [
   { value: "SUGGESTION_SHOWN", label: "Suggestion Shown" },
-  { value: "SUGGESTION_TAB_CLICKED", label: "Tab Accept" },
+  { value: "SUGGESTION_COMMIT", label: "Suggestion Commit" },
+  { value: "TAB", label: "Tab Pressed" },
   { value: "RUN", label: "Run Command" },
   { value: "SUGGESTION_GENERATED", label: "Generated" },
   { value: "TYPED", label: "Typed" },
@@ -278,8 +280,9 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
   const getEventIcon = (event: string) => {
     switch (event) {
       case "TYPED":
+      case "TAB":
         return Keyboard;
-      case "SUGGESTION_TAB_CLICKED":
+      case "SUGGESTION_COMMIT":
         return CheckCircle;
       case "SUGGESTION_SHOWN":
         return Eye;
@@ -309,8 +312,10 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
 
   const getEventColor = (event: string) => {
     switch (event) {
-      case "SUGGESTION_TAB_CLICKED":
+      case "SUGGESTION_COMMIT":
         return "border-green-200 dark:border-green-800";
+      case "TAB":
+        return "border-sky-200 dark:border-sky-800";
       case "SUGGESTION_SHOWN":
         return "border-yellow-500 dark:border-yellow-300";
       case "SUGGESTION_GENERATED":
@@ -336,7 +341,8 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
   const getEventDisplayName = (event: string) => {
     const map: Record<string, string> = {
       TYPED: "Typed",
-      SUGGESTION_TAB_CLICKED: "Tab Accept",
+      TAB: "Tab Pressed",
+      SUGGESTION_COMMIT: "Suggestion Commit",
       SUGGESTION_SHOWN: "Suggestion Shown",
       SUGGESTION_GENERATED: "Generated",
       SUGGESTION_REQUESTED: "Requested",
@@ -630,7 +636,7 @@ const TypingLogs = ({ userId }: TypingLogsProps) => {
                             "SUGGESTION_SHOWN";
                           const isAccept =
                             timeline[currentLogIndex].event ===
-                            "SUGGESTION_TAB_CLICKED";
+                            "SUGGESTION_COMMIT";
                           const userSawBug = s.shownBug === true;
                           const userSawCorrect = s.shownBug === false;
 
